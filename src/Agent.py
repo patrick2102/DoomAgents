@@ -152,8 +152,9 @@ class AgentDoubleDQN(AgentBase):
         #self.batch_size = 64
         self.exploration = 0.1
         self.exploration_decay = 1.0
+        self.train_actor = True
 
-    def init_model(self, criterion, model: src.Models.Model, lr=1e-3):
+    def init_model(self, criterion, model: src.Models.Model, lr=1e-5):
         self.device = "cpu"
         if torch.cuda.is_available():
             self.device = "cuda:0"
@@ -187,12 +188,14 @@ class AgentDoubleDQN(AgentBase):
     def get_action(self, s):
         state = self.get_image(s)
 
-
         if random.random() < self.exploration:
             action_index = random.randint(0, len(self.actions)-1)
             action = self.actions[action_index]
         else:
-            action_index = int(self.actor.predict(state))
+            if self.train_actor:
+                action_index = int(self.actor.predict(state))
+            else:
+                action_index = int(self.critic.predict(state))
             action = self.actions[action_index]
 
         self.last_state = state
@@ -203,44 +206,31 @@ class AgentDoubleDQN(AgentBase):
         s = self.last_state
         a = self.last_action
 
-
-        #print("s: ", np.sum(s))
-        #print("s1: ", np.sum(s1))
-
-        #self.show_image(s)
-        #self.show_image(s1)
-
-        #s = torch.tensor(s)
-        #s1 = torch.tensor(s1)
         r = torch.tensor(reward)
-
-        #s = s.to(self.device)
-        #s1 = s1.to(self.device)
 
         if not done:
             s1 = self.get_image(next_state)
-            #v_actor = r + 0.99 * float(torch.max(self.actor.forward(s1)))
-            #v_critic = r + 0.99 * float(torch.max(self.critic.forward(s1)))
 
-            v_actor = r + 0.99 * self.critic.forward(s)[torch.argmax(self.actor.forward(s1))]
-            v_critic = r + 0.99 * self.actor.forward(s)[torch.argmax(self.critic.forward(s1))]
+            #v = r + 0.99 * float(torch.max(self.model.forward(s1)))
+            #v_actor = r + 0.99 * self.critic.forward(s1)[torch.argmax(self.actor.forward(s1))]
+            #v_critic = r + 0.99 * self.actor.forward(s1)[torch.argmax(self.critic.forward(s1))]
+
+            if self.train_actor:
+                v = r + 0.99 * torch.max(self.critic.forward(s1))
+            else:
+                v = r + 0.99 * torch.max(self.actor.forward(s1))
         else:
-            v_actor = r
-            v_critic = r
+            v = r
 
-        v_actor = v_actor.to(self.device)
-        v_critic = v_critic.to(self.device)
+        v = v.to(self.device)
 
-        #s = torch.tensor(s, dtype=torch.float32)
-        #s = s.to(self.device)
+        if self.train_actor:
+            pred = self.actor.forward(s)[a]
+        else:
+            pred = self.critic.forward(s)[a]
 
-        pred_actor = self.actor.forward(s)[a]
-        pred_critic = self.critic.forward(s)[a]
-
-        loss_actor = self.criterion(pred_actor, v_critic)
-        loss_critic = self.criterion(pred_critic, v_actor)
-        loss_actor.backward()
-        loss_critic.backward()
+        loss = self.criterion(pred, v)
+        loss.backward()
 
         if done:
             self.actor_optimizer.step()
@@ -248,14 +238,16 @@ class AgentDoubleDQN(AgentBase):
             self.actor_optimizer.zero_grad()
             self.critic_optimizer.zero_grad()
 
-        return int(loss_actor)
+        self.train_actor = not self.train_actor
+
+        return int(loss)
 
     def save_model(self):
-        torch.save(self.actor.state_dict(), 'models/DDQN_actor3.pth')
-        torch.save(self.critic.state_dict(), 'models/DDQN_critic3.pth')
+        torch.save(self.actor.state_dict(), 'models/DDQN_actor4.pth')
+        torch.save(self.critic.state_dict(), 'models/DDQN_critic4.pth')
         print("model saved")
 
     def load_model(self):
-        self.actor.load_state_dict(torch.load('models/DDQN_actor3.pth'))
-        self.critic.load_state_dict(torch.load('models/DDQN_critic3.pth'))
+        self.actor.load_state_dict(torch.load('models/DDQN_actor4.pth'))
+        self.critic.load_state_dict(torch.load('models/DDQN_critic4.pth'))
         print("model loaded")
