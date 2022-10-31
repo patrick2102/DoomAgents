@@ -55,7 +55,7 @@ actions = [shoot, left, right]
 #evolutionaryAgent.train(10, 10, doomGame)
 
 """
-
+"""
 def start_training_ddqn(n=100):
     criterion = nn.MSELoss()
     x_size = 320
@@ -64,7 +64,9 @@ def start_training_ddqn(n=100):
     action_space = 3
 
     agentDDQN = Agent.AgentDoubleDQN()
-    model = Models.ConvLinearNN(x_size, y_size, action_space)
+    #model = Models.ConvLinearNN(x_size, y_size, action_space)
+    #model = Models.SimpleLinearNN(x_size, y_size, action_space)
+    model = Models.ConvLinearNN2(x_size, y_size, action_space)
     agentDDQN.init_model(criterion, model)
 
     doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agentDDQN)
@@ -80,7 +82,9 @@ def resume_training_ddqn(n=100):
     action_space = 3
 
     agentDDQN = Agent.AgentDoubleDQN()
-    model = Models.ConvLinearNN(x_size, y_size, action_space)
+    #model = Models.ConvLinearNN(x_size, y_size, action_space)
+    #model = Models.SimpleLinearNN(x_size, y_size, action_space)
+    model = Models.ConvLinearNN2(x_size, y_size, action_space)
     agentDDQN.init_model(criterion, model)
 
     agentDDQN.load_model()
@@ -93,3 +97,45 @@ def resume_training_ddqn(n=100):
 
 start_training_ddqn(1)
 resume_training_ddqn(1000)
+"""
+
+def start_training_dqn(n=100):
+    criterion = nn.MSELoss()
+    x_size = 320
+    y_size = 240
+    img_size = int(x_size * y_size) * 3
+    action_space = 3
+    N = 2000
+
+    agentDQN = Agent.AgentDQN()
+    model = Models.ConvLinearNN2(x_size, y_size, action_space)
+    agentDQN.set_model(criterion, model, N)
+
+    doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agentDQN)
+    doomEnv.run_statistics(episode_count=n)
+
+    agentDQN.save_model()
+
+def resume_training_dqn(n=100):
+    criterion = nn.MSELoss()
+    x_size = 320
+    y_size = 240
+    img_size = int(x_size * y_size) * 3
+    action_space = 3
+    N = 2000
+
+    agentDQN = Agent.AgentDQN()
+    model = Models.ConvLinearNN2(x_size, y_size, action_space)
+    agentDQN.set_model(criterion, model, N)
+
+    agentDQN.load_model()
+
+    doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agentDQN)
+    doomEnv.run_statistics(episode_count=n)
+
+    agentDQN.save_model()
+
+
+start_training_dqn(1)
+resume_training_dqn(1000)
+

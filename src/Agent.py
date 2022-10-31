@@ -45,6 +45,7 @@ class AgentDQN(AgentBase):
         self.last_action = 0
         self.batch_size = 64
         self.exploration = 0.1
+        self.exploration_decay = 1.0
 
     def set_model(self, criterion, model, N):
         self.criterion = criterion
@@ -52,6 +53,10 @@ class AgentDQN(AgentBase):
         self.N = N
         self.optimizer = optim.Adam(self.model.parameters(), lr=1e-3)
         self.memory = deque([], maxlen=self.N)
+
+    def decay_exploration(self):
+        self.exploration *= self.exploration_decay
+        print("exploration: ", self.exploration)
 
     def get_image(self, state):
         s = state.screen_buffer
@@ -64,18 +69,6 @@ class AgentDQN(AgentBase):
 
         s = np.array(s, dtype=float)/255
         return s
-
-    """
-    def show_image(self, s):
-         = np.moveaxis(s, 0, 2)
-
-        s = cv2.resize(s, (int(s.shape[0]/10), int(s.shape[1]/10)), interpolation=cv2.INTER_AREA)
-
-        s = np.moveaxis(s, 2, 0)
-
-        s = np.array(s, dtype=float)/255
-        return s
-    """
 
     def remember(self, state, action, reward, next_state, done):
         s = state
@@ -99,11 +92,14 @@ class AgentDQN(AgentBase):
     def train(self, next_state: GameState, reward, done=False):
         last_state = self.last_state
         last_action = self.last_action
-        self.remember(last_state, last_action, reward, next_state, done)
+        if not done:
+            self.remember(last_state, last_action, reward, next_state, done)
 
-        if len(self.memory) > self.batch_size:
-            avg_loss = self.replay(self.batch_size)
-            return avg_loss
+        if done:
+            if len(self.memory) > self.batch_size:
+                #print("replaying")
+                avg_loss = self.replay(self.batch_size)
+                return avg_loss
 
         return 0
 
@@ -112,10 +108,13 @@ class AgentDQN(AgentBase):
         self.optimizer.zero_grad()
 
         total_loss = 0
-
+        avg_loss = 0
         for i in range(batch_size):
+            #sample = minibatch[i]
+            #total_loss += self.update_q(sample)
             sample = minibatch[i]
             total_loss += self.update_q(sample)
+            #total_loss += 0
 
         avg_loss = total_loss/batch_size
 
@@ -126,16 +125,26 @@ class AgentDQN(AgentBase):
         s, a, r, s1, d = sample
 
         r = torch.tensor(r)
-
         if not d:
             v = r + 0.99 * float(torch.max(self.model.forward(s1)))
         else:
             v = r
 
         pred = self.model.forward(s)[a]
+        """
         loss = self.criterion(pred, v)
         loss.backward()
+        """
+        loss = 0
         return int(loss)
+
+    def save_model(self):
+        torch.save(self.model.state_dict(), 'models/DQN.pth')
+        print("model saved")
+
+    def load_model(self):
+        self.model.load_state_dict(torch.load('models/DQN.pth'))
+        print("model loaded")
 
 
 class AgentDoubleDQN(AgentBase):
@@ -150,7 +159,7 @@ class AgentDoubleDQN(AgentBase):
         self.last_action = 0
         self.device = "cpu"
         #self.batch_size = 64
-        self.exploration = 0.1
+        self.exploration = 0.0
         self.exploration_decay = 1.0
         self.train_actor = True
 
@@ -176,6 +185,7 @@ class AgentDoubleDQN(AgentBase):
 
     def decay_exploration(self):
         self.exploration *= self.exploration_decay
+        print("exploration: ", self.exploration)
 
     def get_image(self, state):
         s = state.screen_buffer
