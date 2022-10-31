@@ -146,22 +146,25 @@ class ConvLinearNN2(Model):
         if self.blur_kernel % 2 == 0:
             self.blur_kernel += 1
 
-        ks = 3
+        ks = 6
         self.conv1 = nn.Conv2d(1, 8, ks, bias=False)
         img_x -= (ks - 1)
         img_y -= (ks - 1)
 
+        ks = 3
         self.conv2 = nn.Conv2d(8, 8, ks, bias=False)
         img_x -= (ks - 1)
         img_y -= (ks - 1)
 
-        self.conv3 = nn.Conv2d(8, 8, ks, bias=False)
+        self.conv3 = nn.Conv2d(8, 1, ks, bias=False)
         img_x -= (ks - 1)
         img_y -= (ks - 1)
 
+        """
         self.conv4 = nn.Conv2d(8, 1, ks, bias=False)
         img_x -= (ks - 1)
         img_y -= (ks - 1)
+        """
 
         img_size = (img_x * img_y)
         self.dense1 = nn.Linear(img_size, 100)
@@ -186,13 +189,13 @@ class ConvLinearNN2(Model):
 
         x = self.conv3(x)
         #x = m(x)
-        x = F.relu(x)
+        #x = F.relu(x)
 
         #m = nn.BatchNorm1d(16)
 
-        x = self.conv4(x)
+        #x = self.conv4(x)
         #x = m(x)
-        x = F.relu(x)
+        #x = F.relu(x)
 
         x = torch.flatten(x)
         x = self.dense1(x)
@@ -202,5 +205,5 @@ class ConvLinearNN2(Model):
 
     def predict(self, x):
         x = self.forward(x)
-        # print(x)
+        print(x)
         return torch.argmax(x)

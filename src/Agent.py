@@ -43,15 +43,25 @@ class AgentDQN(AgentBase):
         self.memory = None
         self.last_state = None
         self.last_action = 0
-        self.batch_size = 64
+        self.batch_size = 200
         self.exploration = 0.1
         self.exploration_decay = 1.0
 
     def set_model(self, criterion, model, N):
+        self.device = "cpu"
+        if torch.cuda.is_available():
+            self.device = "cuda:0"
+
         self.criterion = criterion
         self.model = model
+
+        self.model.set_device(self.device)
+        self.model.to(self.device)
+
+        self.criterion.to(self.device)
+
         self.N = N
-        self.optimizer = optim.Adam(self.model.parameters(), lr=1e-3)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=1e-4)
         self.memory = deque([], maxlen=self.N)
 
     def decay_exploration(self):
@@ -63,7 +73,7 @@ class AgentDQN(AgentBase):
 
         s = np.moveaxis(s, 0, 2)
 
-        s = cv2.resize(s, (int(s.shape[0]/10), int(s.shape[1]/10)), interpolation=cv2.INTER_AREA)
+        s = cv2.resize(s, (int(s.shape[0]), int(s.shape[1])), interpolation=cv2.INTER_AREA)
 
         s = np.moveaxis(s, 2, 0)
 
@@ -72,7 +82,7 @@ class AgentDQN(AgentBase):
 
     def remember(self, state, action, reward, next_state, done):
         s = state
-        s1 = self.get_image(next_state)
+        s1 = next_state
         self.memory.append([s, action, reward, s1, done])
 
     def get_action(self, s):
@@ -93,11 +103,13 @@ class AgentDQN(AgentBase):
         last_state = self.last_state
         last_action = self.last_action
         if not done:
-            self.remember(last_state, last_action, reward, next_state, done)
+            self.remember(last_state, last_action, reward, self.get_image(next_state), done)
+        else:
+            self.remember(last_state, last_action, reward, last_state, done)
+
 
         if done:
             if len(self.memory) > self.batch_size:
-                #print("replaying")
                 avg_loss = self.replay(self.batch_size)
                 return avg_loss
 
@@ -108,13 +120,10 @@ class AgentDQN(AgentBase):
         self.optimizer.zero_grad()
 
         total_loss = 0
-        avg_loss = 0
+
         for i in range(batch_size):
-            #sample = minibatch[i]
-            #total_loss += self.update_q(sample)
             sample = minibatch[i]
             total_loss += self.update_q(sample)
-            #total_loss += 0
 
         avg_loss = total_loss/batch_size
 
@@ -130,12 +139,12 @@ class AgentDQN(AgentBase):
         else:
             v = r
 
+        v = v.to(self.device)
+
         pred = self.model.forward(s)[a]
-        """
         loss = self.criterion(pred, v)
         loss.backward()
-        """
-        loss = 0
+
         return int(loss)
 
     def save_model(self):
