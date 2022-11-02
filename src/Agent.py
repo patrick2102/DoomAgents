@@ -21,7 +21,7 @@ class AgentBase:
     def get_action(self, state: GameState):
         raise NotImplementedError
 
-    def train(self, state: GameState, reward,  done=False):
+    def train(self, last_state, last_action, state: GameState, reward,  done=False):
         raise NotImplementedError
 
     def save_model(self):
@@ -41,11 +41,9 @@ class AgentDQN(AgentBase):
         self.optimizer = None
         self.N = 0
         self.memory = None
-        self.last_state = None
-        self.last_action = 0
-        self.batch_size = 200
-        self.exploration = 0.1
-        self.exploration_decay = 1.0
+        self.batch_size = 300
+        self.exploration = 1.0
+        self.exploration_decay = 0.99
 
     def set_model(self, criterion, model, N):
         self.device = "cpu"
@@ -83,10 +81,11 @@ class AgentDQN(AgentBase):
     def remember(self, state, action, reward, next_state, done):
         s = state
         s1 = next_state
-        self.memory.append([s, action, reward, s1, done])
+        a = self.actions.index(action)
+        self.memory.append([s, a, reward, s1, done])
 
     def get_action(self, s):
-        state = self.get_image(s)
+        state = s
 
         if random.random() < self.exploration:
             action_index = random.randint(0, len(self.actions)-1)
@@ -95,21 +94,14 @@ class AgentDQN(AgentBase):
             action_index = int(self.model.predict(state))
             action = self.actions[action_index]
 
-        self.last_state = state
-        self.last_action = action_index
         return action
 
-    def train(self, next_state: GameState, reward, done=False):
-        last_state = self.last_state
-        last_action = self.last_action
-        if not done:
-            self.remember(last_state, last_action, reward, self.get_image(next_state), done)
-        else:
-            self.remember(last_state, last_action, reward, last_state, done)
+    def train(self, state, action, next_state: GameState, reward, done=False):
 
+        self.remember(state, action, reward, next_state, done)
 
         if done:
-            if len(self.memory) > self.batch_size:
+            if len(self.memory) >= self.batch_size:
                 avg_loss = self.replay(self.batch_size)
                 return avg_loss
 
@@ -124,6 +116,8 @@ class AgentDQN(AgentBase):
         for i in range(batch_size):
             sample = minibatch[i]
             total_loss += self.update_q(sample)
+
+        print("batch size:", self.batch_size)
 
         avg_loss = total_loss/batch_size
 

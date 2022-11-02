@@ -142,31 +142,37 @@ class ConvLinearNN2(Model):
         self.ys = int(y_size * rescale_factor)
         img_x = self.xs
         img_y = self.ys
-        self.blur_kernel = int(1 / rescale_factor)
-        if self.blur_kernel % 2 == 0:
-            self.blur_kernel += 1
 
-        ks = 6
+        ks = 8
         self.conv1 = nn.Conv2d(1, 8, ks, bias=False)
         img_x -= (ks - 1)
         img_y -= (ks - 1)
 
-        ks = 3
-        self.conv2 = nn.Conv2d(8, 8, ks, bias=False)
+        ks = 5
+        self.conv2 = nn.Conv2d(8, 16, ks, bias=False)
         img_x -= (ks - 1)
         img_y -= (ks - 1)
 
-        self.conv3 = nn.Conv2d(8, 1, ks, bias=False)
-        img_x -= (ks - 1)
-        img_y -= (ks - 1)
 
-        """
-        self.conv4 = nn.Conv2d(8, 1, ks, bias=False)
-        img_x -= (ks - 1)
-        img_y -= (ks - 1)
-        """
+        ks = 5
+        ks_stride = 2
+        self.max_pool2d = nn.MaxPool2d(ks, stride=ks_stride)
 
-        img_size = (img_x * img_y)
+        img_x -= (ks - 1)
+        img_x /= ks_stride
+        img_y -= (ks - 1)
+        img_y /= ks_stride
+
+        img_x -= (ks - 1)
+        img_x /= ks_stride
+        img_y -= (ks - 1)
+        img_y /= ks_stride
+
+        img_x = int(img_x)
+        img_y = int(img_y)
+
+        img_size = (16 * img_x * img_y)
+        print(img_size)
         self.dense1 = nn.Linear(img_size, 100)
         self.dense2 = nn.Linear(100, action_space)
 
@@ -177,25 +183,15 @@ class ConvLinearNN2(Model):
         x = T.resize(x, size=(self.xs, self.ys))
         x = T.rgb_to_grayscale(x)
 
-        #m = nn.BatchNorm1d(8)
+        m = self.max_pool2d
 
         x = self.conv1(x)  # convolutional
-        #x = m(x)
         x = F.relu(x)
+        x = m(x)
 
         x = self.conv2(x)
-        #x = m(x)
         x = F.relu(x)
-
-        x = self.conv3(x)
-        #x = m(x)
-        #x = F.relu(x)
-
-        #m = nn.BatchNorm1d(16)
-
-        #x = self.conv4(x)
-        #x = m(x)
-        #x = F.relu(x)
+        x = m(x)
 
         x = torch.flatten(x)
         x = self.dense1(x)

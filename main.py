@@ -105,7 +105,7 @@ def start_training_dqn(n=100):
     y_size = 240
     img_size = int(x_size * y_size) * 3
     action_space = 3
-    N = 2000
+    N = 3000
 
     agentDQN = Agent.AgentDQN()
     model = Models.ConvLinearNN2(x_size, y_size, action_space)
@@ -122,7 +122,7 @@ def resume_training_dqn(n=100):
     y_size = 240
     img_size = int(x_size * y_size) * 3
     action_space = 3
-    N = 2000
+    N = 3000
 
     agentDQN = Agent.AgentDQN()
     model = Models.ConvLinearNN2(x_size, y_size, action_space)
@@ -136,6 +136,6 @@ def resume_training_dqn(n=100):
     agentDQN.save_model()
 
 
-start_training_dqn(1)
-resume_training_dqn(1000)
+#start_training_dqn(1)
+resume_training_dqn(100)
 

@@ -3,6 +3,7 @@ import random
 import time
 import matplotlib.pyplot as plt
 import torch
+import copy
 
 
 class DoomEnvironmentInstance:
@@ -26,19 +27,39 @@ class DoomEnvironmentInstance:
         agent.set_available_actions(actions)
 
         total_time = 0
+        tics_per_action = 6
 
         for e in range(episode_count):
             game.new_episode()
             start = time.time()
-            while not game.is_episode_finished():
-                state = game.get_state()
-                action = agent.get_action(state)
-                #print(action)
-                reward = game.make_action(action)
-                agent.train(state, reward, game.is_episode_finished())
+            done = False
+            step_count = 0
 
-                #print("\treward:", reward)
-                #time.sleep(0.02)
+            state = agent.get_image(game.get_state())
+            action = agent.get_action(state)
+            reward = game.make_action(action)
+
+            while not done:
+                #print(reward)
+                next_state = agent.get_image(game.get_state())
+
+                if step_count % tics_per_action == 0:
+                    next_action = agent.get_action(state)
+                    next_reward = game.make_action(next_action)
+                else:
+                    next_action = action
+                    game.advance_action()
+                    next_reward = game.get_last_reward()
+
+                done = game.is_episode_finished()
+
+                agent.train(state, action, next_state, reward, done)
+
+                state = next_state
+                reward = next_reward
+                action = next_action
+
+                step_count += 1
 
             agent.decay_exploration()
 
@@ -72,18 +93,40 @@ class DoomEnvironmentInstance:
 
         total_reward = 0
 
+        tics_per_action = 6
+
         for e in range(episode_count):
             game.new_episode()
             avg_loss = 0
             step_count = 0
             start = time.time()
-            while not game.is_episode_finished():
+            done = False
+
+            state = agent.get_image(game.get_state())
+            action = agent.get_action(state)
+            reward = game.make_action(action)
+
+            while not done:
+                #print(reward)
+                next_state = agent.get_image(game.get_state())
+
+                if step_count % tics_per_action == 0:
+                    next_action = agent.get_action(state)
+                    next_reward = game.make_action(next_action)
+                else:
+                    next_action = action
+                    game.advance_action()
+                    next_reward = game.get_last_reward()
+
+                done = game.is_episode_finished()
+
+                avg_loss += agent.train(state, action, next_state, reward, done)
+
+                state = next_state
+                reward = next_reward
+                action = next_action
+
                 step_count += 1
-                state = game.get_state()
-                action = agent.get_action(state)
-                reward = game.make_action(action)
-                next_state = game.get_state()
-                avg_loss += agent.train(next_state, reward, game.is_episode_finished())
 
             agent.decay_exploration()
 
