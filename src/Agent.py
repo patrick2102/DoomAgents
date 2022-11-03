@@ -43,7 +43,7 @@ class AgentDQN(AgentBase):
         self.memory = None
         self.batch_size = 1024
         self.exploration = 1.0
-        self.exploration_decay = 0.995
+        self.exploration_decay = 0.998
         self.min_exploration = 0.1
 
     def set_model(self, criterion, model, N):
@@ -65,9 +65,10 @@ class AgentDQN(AgentBase):
         self.memory = deque([], maxlen=self.N)
 
     def decay_exploration(self):
-        self.exploration *= self.exploration_decay
-        if self.exploration < self.min_exploration:
-            self.exploration = self.min_exploration
+        if len(self.memory) >= self.batch_size:
+            self.exploration *= self.exploration_decay
+            if self.exploration < self.min_exploration:
+                self.exploration = self.min_exploration
         print("exploration: ", self.exploration)
 
     def remember(self, state, action, reward, next_state, done):

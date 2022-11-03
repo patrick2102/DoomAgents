@@ -138,5 +138,5 @@ def resume_training_dqn(n=100):
 
 
 start_training_dqn(1)
-resume_training_dqn(2000)
+resume_training_dqn(1000)
 
