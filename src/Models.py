@@ -12,7 +12,9 @@ from vizdoom import *
 class Model(nn.Module):
     def __init__(self, device="cpu"):
         super(Model, self).__init__()
-        self.device = device
+        self.device = "cpu"
+        if torch.cuda.is_available():
+            self.device = "cuda:0"
 
     def forward(self, x):
         raise NotImplementedError
@@ -133,6 +135,17 @@ class ConvLinearNN(Model):
         #print(x)
         return torch.argmax(x)
 
+# Image size recommended:
+# større end 8 eller sådan kanaler, f.eks. 32 og 64
+# kernel størrelse ikke over 10 og flere lag
+# vi kan ikke optimere uden gradients
+# prøv med forskellige hyperparameter
+# gaussian search for hyperparameters can help. Libraries
+# Hyperparameter search.
+
+# spørgsmål performance:
+#
+
 
 class ConvLinearNN2(Model):
     def __init__(self, x_size, y_size, action_space, dim=3):
@@ -144,12 +157,12 @@ class ConvLinearNN2(Model):
         img_y = self.ys
 
         ks = 8
-        self.conv1 = nn.Conv2d(1, 8, ks, bias=False)
+        self.conv1 = nn.Conv2d(1, 8, ks, bias=True)
         img_x -= (ks - 1)
         img_y -= (ks - 1)
 
         ks = 5
-        self.conv2 = nn.Conv2d(8, 16, ks, bias=False)
+        self.conv2 = nn.Conv2d(8, 16, ks, bias=True)
         img_x -= (ks - 1)
         img_y -= (ks - 1)
 
@@ -177,13 +190,15 @@ class ConvLinearNN2(Model):
         self.dense2 = nn.Linear(100, action_space)
 
     def forward(self, x):
-        x = torch.FloatTensor(x)
+        #x = torch.FloatTensor(x)
+        #x = torch.tensor(x).float()
         x = x.to(self.device)
 
-        x = T.resize(x, size=(self.xs, self.ys))
-        x = T.rgb_to_grayscale(x)
+        #x = T.resize(x, size=(self.xs, self.ys))
+        #x = T.rgb_to_grayscale(x)
 
         m = self.max_pool2d
+        #batch_norm = nn.BatchNorm2d()
 
         x = self.conv1(x)  # convolutional
         x = F.relu(x)
@@ -197,6 +212,102 @@ class ConvLinearNN2(Model):
         x = self.dense1(x)
         x = F.relu(x)
         x = self.dense2(x)
+        return x
+
+    def predict(self, x):
+        x = self.forward(x)
+        #print(x)
+        return torch.argmax(x)
+
+class ConvLinearNNMult(Model):
+    def __init__(self, x_size, y_size, action_space, batch_size=1024):
+        super(ConvLinearNNMult, self).__init__()
+        self.batch_size = batch_size
+
+        rescale_factor = 1.0
+        self.xs = int(x_size * rescale_factor)
+        self.ys = int(y_size * rescale_factor)
+        img_x = self.xs
+        img_y = self.ys
+
+        ks = 3
+        #self.conv1 = nn.Conv2d(1, 8, ks, bias=True)
+        self.conv1 = nn.Sequential(
+                nn.Conv2d(1, 32, ks, bias=False),
+                nn.BatchNorm2d(32),
+                nn.ReLU()
+            )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        ks = 3
+        #self.conv2 = nn.Conv2d(8, 16, ks, bias=True)
+        self.conv2 = nn.Sequential(
+                nn.Conv2d(32, 64, ks, bias=False),
+                nn.BatchNorm2d(64),
+                nn.ReLU()
+            )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+
+        ks = 3
+        ks_stride = 1
+        """
+        self.max_pool2d = nn.MaxPool2d(ks, stride=ks_stride)
+
+        img_x -= (ks - 1)
+        img_x /= ks_stride
+        img_y -= (ks - 1)
+        img_y /= ks_stride
+
+        img_x -= (ks - 1)
+        img_x /= ks_stride
+        img_y -= (ks - 1)
+        img_y /= ks_stride
+
+        img_x = int(img_x)
+        img_y = int(img_y)
+        """
+
+        self.img_size = (64 * img_x * img_y)
+        print(self.img_size)
+        #self.dense1 = nn.Linear(img_size, 100)
+        #self.dense2 = nn.Linear(100, action_space)
+
+        self.dense1 = nn.Sequential(
+            nn.Linear(self.img_size, 100),
+            nn.ReLU()
+        )
+
+        self.dense2 = nn.Sequential(
+            nn.Linear(100, action_space)
+        )
+
+    def forward(self, x):
+        x = x.to(self.device)
+
+        #m = self.max_pool2d
+
+        x = self.conv1(x)  # convolutional
+        #x = F.relu(x)
+        #x = m(x)
+
+        x = self.conv2(x)
+        #x = F.relu(x)
+        #x = m(x)
+
+        #x = torch.flatten(x)
+        x = x.view(-1, self.img_size)
+
+
+
+        x = self.dense1(x)
+        #x = F.relu(x)
+        x = self.dense2(x)
+
+        #print("x: ", x.shape)
+
         return x
 
     def predict(self, x):

@@ -105,13 +105,14 @@ def start_training_dqn(n=100):
     y_size = 240
     img_size = int(x_size * y_size) * 3
     action_space = 3
-    N = 3000
+    N = 10000
 
     agentDQN = Agent.AgentDQN()
-    model = Models.ConvLinearNN2(x_size, y_size, action_space)
-    agentDQN.set_model(criterion, model, N)
 
     doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agentDQN)
+    model = Models.ConvLinearNNMult(doomEnv.downscale[0], doomEnv.downscale[1], action_space)
+    #model = Models.ConvLinearNN2(doomEnv.downscale[0], doomEnv.downscale[1], action_space)
+    agentDQN.set_model(criterion, model, N)
     doomEnv.run_statistics(episode_count=n)
 
     agentDQN.save_model()
@@ -122,20 +123,20 @@ def resume_training_dqn(n=100):
     y_size = 240
     img_size = int(x_size * y_size) * 3
     action_space = 3
-    N = 3000
+    N = 10000
 
     agentDQN = Agent.AgentDQN()
-    model = Models.ConvLinearNN2(x_size, y_size, action_space)
-    agentDQN.set_model(criterion, model, N)
-
-    agentDQN.load_model()
 
     doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agentDQN)
+    model = Models.ConvLinearNNMult(doomEnv.downscale[0], doomEnv.downscale[1], action_space)
+    #model = Models.ConvLinearNN2(doomEnv.downscale[0], doomEnv.downscale[1], action_space)
+    agentDQN.load_model(criterion, model, N)
+
     doomEnv.run_statistics(episode_count=n)
 
     agentDQN.save_model()
 
 
-#start_training_dqn(1)
-resume_training_dqn(100)
+start_training_dqn(1)
+resume_training_dqn(2000)
 

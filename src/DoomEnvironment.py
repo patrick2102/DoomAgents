@@ -1,7 +1,11 @@
+from collections import deque
+
 from vizdoom import *
 import random
 import time
 import matplotlib.pyplot as plt
+import numpy as np
+import cv2 as cv2
 import torch
 import copy
 
@@ -12,9 +16,33 @@ class DoomEnvironmentInstance:
         self.game = DoomGame()
         self.game.load_config(config)
         self.game.init()
+        self.downscale = (30, 45)
+        self.ticrate = 35
+        self.game.set_ticrate(self.ticrate)
 
     def get_game(self):
         return self.game
+
+    def get_state_as_image(self, state):
+        s = state.screen_buffer
+
+        s = np.moveaxis(s, 0, 2)
+
+        s = cv2.resize(s, self.downscale, interpolation=cv2.INTER_AREA)
+        s = cv2.cvtColor(s, cv2.COLOR_RGB2GRAY)
+
+        s = np.moveaxis(s, 1, 0)
+
+        s = np.array(s, dtype=float)/255
+
+        #s = np.mean(s, axis=0)
+        #s = np.mean(s, axis=0)
+
+        #s = np.vstack((np.ones, s))
+        s = np.expand_dims(s, axis=0)
+        #s = np.array(s)
+
+        return s
 
     def run(self, episode_count):
         game = self.game
@@ -27,7 +55,7 @@ class DoomEnvironmentInstance:
         agent.set_available_actions(actions)
 
         total_time = 0
-        tics_per_action = 6
+        tics_per_action = 12
 
         for e in range(episode_count):
             game.new_episode()
@@ -93,7 +121,9 @@ class DoomEnvironmentInstance:
 
         total_reward = 0
 
-        tics_per_action = 6
+        tics_per_action = 12
+
+        scores = deque([], maxlen=100)
 
         for e in range(episode_count):
             game.new_episode()
@@ -102,39 +132,37 @@ class DoomEnvironmentInstance:
             start = time.time()
             done = False
 
-            state = agent.get_image(game.get_state())
-            action = agent.get_action(state)
-            reward = game.make_action(action)
-
             while not done:
-                #print(reward)
-                next_state = agent.get_image(game.get_state())
-
-                if step_count % tics_per_action == 0:
-                    next_action = agent.get_action(state)
-                    next_reward = game.make_action(next_action)
-                else:
-                    next_action = action
-                    game.advance_action()
-                    next_reward = game.get_last_reward()
+                state = self.get_state_as_image(game.get_state())
+                action = agent.get_action(state)
+                reward = game.make_action(action)
 
                 done = game.is_episode_finished()
 
-                avg_loss += agent.train(state, action, next_state, reward, done)
+                for i in range(tics_per_action):
+                    if done:
+                        break
+                    game.advance_action()
+                    done = game.is_episode_finished()
 
-                state = next_state
-                reward = next_reward
-                action = next_action
+                if not done:
+                    next_state = self.get_state_as_image(game.get_state())
+                else:
+                    next_state = np.zeros((1, 30, 45)).astype(np.float32)
+
+                avg_loss += agent.train(state, action, next_state, reward, done)
 
                 step_count += 1
 
+            end = time.time()
+
             agent.decay_exploration()
 
-            end = time.time()
-            total_time += end-start
-            avg_time = total_time/(e+1)
+            #total_time += (end-start)/step_count
+            avg_time = (end-start)/step_count
             total_reward += game.get_total_reward()
-            avg_reward = total_reward/(e+1)
+            scores.append(game.get_total_reward())
+            avg_reward = sum(scores)/len(scores)
             print("average episode time: ", avg_time)
             print("Result:", game.get_total_reward())
             print("exploration rate: ", agent.exploration)
