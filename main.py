@@ -100,8 +100,8 @@ resume_training_ddqn(1000)
 """
 
 def train_dqn():
-    episodes_per_epoch = 3
-    epochs = 3
+    episodes_per_epoch = 1000
+    epochs = 10
     agentDQN = Agent.AgentDQN()
     doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agentDQN)
     doomEnv.run_statistics(episodes_per_epoch=episodes_per_epoch, epoch_count=epochs)
