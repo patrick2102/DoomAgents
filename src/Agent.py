@@ -45,7 +45,7 @@ class AgentDQN(AgentBase):
         self.memory = None
         self.batch_size = 64
         self.exploration = 1.0
-        self.exploration_decay = 0.9995
+        self.exploration_decay = 0.99
         self.min_exploration = 0.1
         self.downscale = (30, 45)
         self.model_path = 'models/'+model_name+'.pth'
@@ -171,7 +171,7 @@ class AgentDQN(AgentBase):
             self.device = "cuda:0"
 
         self.criterion = nn.MSELoss()
-        self.model = Models.ConvLinearNNMult(self.downscale[0], self.downscale[1], len(self.actions))
+        self.model = Models.DuelNetwork(self.downscale[0], self.downscale[1], len(self.actions))
 
         if exists(self.model_path):
             self.model.load_state_dict(torch.load(self.model_path))

@@ -55,7 +55,7 @@ class DoomEnvironmentInstance:
         agent.set_available_actions(actions)
 
         total_time = 0
-        tics_per_action = 12
+        tics_per_action = 6
 
         for e in range(episode_count):
             game.new_episode()

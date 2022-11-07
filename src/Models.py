@@ -284,3 +284,104 @@ class ConvLinearNNMult(Model):
         x = self.forward(x)
         #print(x)
         return torch.argmax(x)
+
+class DuelNetwork(Model):
+    def __init__(self, x_size, y_size, action_space, batch_size=1024):
+        super(DuelNetwork, self).__init__()
+        self.batch_size = batch_size
+
+        rescale_factor = 1.0
+        self.xs = int(x_size * rescale_factor)
+        self.ys = int(y_size * rescale_factor)
+        img_x = self.xs
+        img_y = self.ys
+
+        ks = 3
+        #self.conv1 = nn.Conv2d(1, 8, ks, bias=True)
+        self.conv1 = nn.Sequential(
+                nn.Conv2d(1, 16, ks,  bias=False),
+                nn.BatchNorm2d(16),
+                nn.ReLU()
+            )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        ks = 3
+        #self.conv2 = nn.Conv2d(8, 16, ks, bias=True)
+        self.conv2 = nn.Sequential(
+                nn.Conv2d(16, 32, ks,  bias=False),
+                nn.BatchNorm2d(32),
+                nn.ReLU()
+            )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        
+        ks = 3
+        self.conv3 = nn.Sequential(
+                nn.Conv2d(32, 32, ks,  bias=False),
+                nn.BatchNorm2d(32),
+                nn.ReLU()
+            )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+        
+        
+        ks = 3
+        self.conv4 = nn.Sequential(
+                nn.Conv2d(32, 64, ks,  bias=False),
+                nn.BatchNorm2d(64),
+                nn.ReLU()
+            )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        ks = 3
+        ks_stride = 1
+        
+        self.img_size = (64 * img_x * img_y)
+        print(self.img_size)
+
+        linearInputSize = int(self.img_size/2)
+
+        self.state_value = nn.Sequential(
+            nn.Linear(linearInputSize, 100),
+            nn.ReLU(),
+            nn.Linear(100, 1)
+        )
+
+        self.advantage_value = nn.Sequential(
+            nn.Linear(linearInputSize, 100),
+            nn.ReLU(),
+            nn.Linear(100, action_space)
+        )
+
+    def forward(self, x):
+        x = x.to(self.device)
+
+        x = self.conv1(x)
+
+        x = self.conv2(x)
+
+        x = self.conv3(x)
+
+        x = self.conv4(x)
+
+        x = x.view(-1, self.img_size)
+
+        sliceSize = int(self.img_size/2)
+
+        x1 = x[:, :sliceSize]
+        x2 = x[:, sliceSize:]
+
+        state_value = self.state_value(x1).reshape(-1,1)
+        advantage_value = self.advantage_value(x2)
+
+        q = state_value + advantage_value - advantage_value.mean()
+
+        return q
+
+    def predict(self, x):
+        x = self.forward(x)
+        #print(x)
+        return torch.argmax(x)
