@@ -253,27 +253,9 @@ class ConvLinearNNMult(Model):
 
         ks = 3
         ks_stride = 1
-        """
-        self.max_pool2d = nn.MaxPool2d(ks, stride=ks_stride)
-
-        img_x -= (ks - 1)
-        img_x /= ks_stride
-        img_y -= (ks - 1)
-        img_y /= ks_stride
-
-        img_x -= (ks - 1)
-        img_x /= ks_stride
-        img_y -= (ks - 1)
-        img_y /= ks_stride
-
-        img_x = int(img_x)
-        img_y = int(img_y)
-        """
 
         self.img_size = (64 * img_x * img_y)
         print(self.img_size)
-        #self.dense1 = nn.Linear(img_size, 100)
-        #self.dense2 = nn.Linear(100, action_space)
 
         self.dense1 = nn.Sequential(
             nn.Linear(self.img_size, 100),
@@ -287,30 +269,18 @@ class ConvLinearNNMult(Model):
     def forward(self, x):
         x = x.to(self.device)
 
-        #m = self.max_pool2d
-
-        x = self.conv1(x)  # convolutional
-        #x = F.relu(x)
-        #x = m(x)
+        x = self.conv1(x)
 
         x = self.conv2(x)
-        #x = F.relu(x)
-        #x = m(x)
 
-        #x = torch.flatten(x)
         x = x.view(-1, self.img_size)
 
-
-
         x = self.dense1(x)
-        #x = F.relu(x)
         x = self.dense2(x)
-
-        #print("x: ", x.shape)
 
         return x
 
     def predict(self, x):
         x = self.forward(x)
-        print(x)
+        #print(x)
         return torch.argmax(x)

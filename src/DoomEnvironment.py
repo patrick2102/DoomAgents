@@ -19,6 +19,11 @@ class DoomEnvironmentInstance:
         self.downscale = (30, 45)
         self.ticrate = 35
         self.game.set_ticrate(self.ticrate)
+        left = [1, 0, 0]
+        right = [0, 1, 0]
+        shoot = [0, 0, 1]
+        actions = [shoot, left, right]
+        agent.set_available_actions(actions)
 
     def get_game(self):
         return self.game
@@ -35,12 +40,7 @@ class DoomEnvironmentInstance:
 
         s = np.array(s, dtype=float)/255
 
-        #s = np.mean(s, axis=0)
-        #s = np.mean(s, axis=0)
-
-        #s = np.vstack((np.ones, s))
         s = np.expand_dims(s, axis=0)
-        #s = np.array(s)
 
         return s
 
@@ -97,25 +97,11 @@ class DoomEnvironmentInstance:
             print("Result:", game.get_total_reward())
             time.sleep(0.1)
 
-    def run_statistics(self, episode_count):
-        plt.ion()
-        plt.show()
-        plt.xlabel('Episode')
-        plt.ylabel('Average reward')
-        plt.title('Doom')
-        x = []
-        rewards = []
-        losses = []
-        times = []
-
+    def run_statistics(self, episodes_per_epoch, epoch_count):
         game = self.game
         agent = self.agent
 
-        left = [1, 0, 0]
-        right = [0, 1, 0]
-        shoot = [0, 0, 1]
-        actions = [shoot, left, right]
-        agent.set_available_actions(actions)
+        agent.load_model()
 
         total_time = 0
 
@@ -125,55 +111,71 @@ class DoomEnvironmentInstance:
 
         scores = deque([], maxlen=100)
 
-        for e in range(episode_count):
-            game.new_episode()
-            avg_loss = 0
-            step_count = 0
-            start = time.time()
-            done = False
+        for epoch in range(epoch_count):
+            plt.ion()
+            plt.show()
+            plt.xlabel('Episode')
+            plt.ylabel('Average reward')
+            plt.title('Doom')
+            x = []
+            rewards = []
+            losses = []
+            times = []
 
-            while not done:
-                state = self.get_state_as_image(game.get_state())
-                action = agent.get_action(state)
-                reward = game.make_action(action)
+            print("epoch: ", epoch)
+            for e in range(episodes_per_epoch):
+                game.new_episode()
+                avg_loss = 0
+                step_count = 0
+                start = time.time()
+                done = False
 
-                done = game.is_episode_finished()
+                while not done:
+                    state = game.get_state()
+                    action = agent.get_action(state)
+                    reward = game.make_action(action)
 
-                for i in range(tics_per_action):
-                    if done:
-                        break
-                    game.advance_action()
                     done = game.is_episode_finished()
 
-                if not done:
-                    next_state = self.get_state_as_image(game.get_state())
-                else:
-                    next_state = np.zeros((1, 30, 45)).astype(np.float32)
+                    for i in range(tics_per_action):
+                        if done:
+                            break
+                        game.advance_action()
+                        done = game.is_episode_finished()
 
-                avg_loss += agent.train(state, action, next_state, reward, done)
+                    if not done:
+                        next_state = game.get_state()
+                    else:
+                        next_state = None
 
-                step_count += 1
+                    avg_loss += agent.train(state, action, next_state, reward, done)
 
-            end = time.time()
+                    step_count += 1
 
-            agent.decay_exploration()
+                end = time.time()
 
-            #total_time += (end-start)/step_count
-            avg_time = (end-start)/step_count
-            total_reward += game.get_total_reward()
-            scores.append(game.get_total_reward())
-            avg_reward = sum(scores)/len(scores)
-            print("average episode time: ", avg_time)
-            print("Result:", game.get_total_reward())
-            print("exploration rate: ", agent.exploration)
-            #avg_loss /= step_count
-            x.append(e)
-            rewards.append(avg_reward)
-            losses.append(int(avg_loss))
-            times.append(avg_time)
-            plt.plot(x, rewards)
-            #plt.plot(x, times)
-            plt.draw()
-            plt.pause(0.1)
+                agent.decay_exploration()
 
-            time.sleep(0.1)
+                #total_time += (end-start)/step_count
+                avg_time = (end-start)/step_count
+                total_reward += game.get_total_reward()
+                scores.append(game.get_total_reward())
+                avg_reward = sum(scores)/len(scores)
+                #print("average episode time: ", avg_time)
+                #print("Result:", game.get_total_reward())
+                #print("exploration rate: ", agent.exploration)
+                #avg_loss /= step_count
+                x.append(e)
+                rewards.append(avg_reward)
+                losses.append(int(avg_loss))
+                times.append(avg_time)
+                plt.plot(x, rewards)
+                #plt.plot(x, times)
+                plt.draw()
+                plt.pause(0.1)
+
+                time.sleep(0.1)
+            plt.clf()
+            rewards.clear()
+            x.clear()
+            agent.save_model()

@@ -9,6 +9,8 @@ from vizdoom import *
 from collections import deque  # for memory
 import copy
 import src.Models
+from src import Models
+from os.path import exists
 
 
 class AgentBase:
@@ -34,35 +36,35 @@ class AgentRandom(AgentBase):
 
 
 class AgentDQN(AgentBase):
-    def __init__(self):
+    def __init__(self, memory_size=10000, model_name='default_dqn'):
         super().__init__()
         self.criterion = None
         self.model = None
         self.optimizer = None
-        self.N = 0
+        self.N = memory_size
         self.memory = None
-        self.batch_size = 1024
+        self.batch_size = 64
         self.exploration = 1.0
-        self.exploration_decay = 0.998
+        self.exploration_decay = 0.9995
         self.min_exploration = 0.1
+        self.downscale = (30, 45)
+        self.model_path = 'models/'+model_name+'.pth'
 
-    def set_model(self, criterion, model, N):
-        self.device = "cpu"
-        if torch.cuda.is_available():
-            self.device = "cuda:0"
+    def preprocess(self, state):
+        s = state.screen_buffer
 
-        self.criterion = criterion
-        self.model = model
+        s = np.moveaxis(s, 0, 2)
 
-        self.model.set_device(self.device)
-        self.model.to(self.device)
+        s = cv2.resize(s, self.downscale, interpolation=cv2.INTER_AREA)
+        s = cv2.cvtColor(s, cv2.COLOR_RGB2GRAY)
 
-        self.criterion.to(self.device)
+        s = np.moveaxis(s, 1, 0)
 
-        self.N = N
-        #self.optimizer = optim.Adam(self.model.parameters(), lr=1e-4)
-        self.optimizer = optim.SGD(self.model.parameters(), lr=1e-4)
-        self.memory = deque([], maxlen=self.N)
+        s = np.array(s, dtype=float) / 255
+
+        s = np.expand_dims(s, axis=0)
+
+        return s
 
     def decay_exploration(self):
         if len(self.memory) >= self.batch_size:
@@ -72,18 +74,22 @@ class AgentDQN(AgentBase):
         print("exploration: ", self.exploration)
 
     def remember(self, state, action, reward, next_state, done):
-        s = state
-        s1 = next_state
-        a = self.actions.index(action)
-        self.memory.append([s, a, reward, s1, done])
+        state = self.preprocess(state)
+        if next_state is None:
+            next_state = np.zeros((1, 30, 45)).astype(np.float32)
+        else:
+            next_state = self.preprocess(next_state)
+        action = self.actions.index(action)
+        self.memory.append([state, action, reward, next_state, done])
 
-    def get_action(self, s):
+    def get_action(self, state):
 
         if random.random() < self.exploration:
             action_index = random.randint(0, len(self.actions)-1)
             action = self.actions[action_index]
         else:
-            state = [torch.tensor(s).float().cpu()]
+            state = self.preprocess(state)
+            state = [torch.tensor(state).float().cpu()]
             state = torch.stack(state)
             action_index = int(self.model.predict(state))
             action = self.actions[action_index]
@@ -94,14 +100,16 @@ class AgentDQN(AgentBase):
 
         self.remember(state, action, reward, next_state, done)
 
-        #if len(self.memory) >= self.batch_size:
-        #    avg_loss = self.replay(self.batch_size)
-        #    return avg_loss
+        if len(self.memory) >= self.batch_size:
+            avg_loss = self.replay(self.batch_size)
+            return avg_loss
 
+        """
         if done:
             if len(self.memory) >= self.batch_size:
                 avg_loss = self.replay(self.batch_size)
                 return avg_loss
+        """
 
         return 0
 
@@ -113,28 +121,15 @@ class AgentDQN(AgentBase):
 
         minibatch = np.array(minibatch.copy(), dtype=object)
 
-        #s, a, r, s1, d = sample
         states = torch.from_numpy(np.stack(minibatch[:, 0]).astype(float)).float().to(self.device)
-        #print(states.shape)
-
         actions = torch.from_numpy(np.array(minibatch[:, 1]).astype(int)).int().to(self.device)
         rewards = torch.from_numpy(np.array(minibatch[:, 2]).astype(float)).float().to(self.device)
         next_states = torch.from_numpy(np.stack(minibatch[:, 3]).astype(float)).float().to(self.device)
-        print("next shapes: ", next_states.shape)
         dones = torch.from_numpy(np.array(minibatch[:, 4]).astype(bool)).to(self.device)
         not_dones = ~dones
         not_dones = not_dones.int()
 
-        # start batch size
-
-        # Gøre det her vektoriseret
-
-        #print(next_states.shape)
-        #print(states.shape)
-        #exit()
-        #self.model.forward(states)
         v = rewards + 0.99 * torch.max(self.model.forward(next_states), dim=1)[0] * not_dones
-        print(v)
 
         s = self.model.forward(states)
         p = []
@@ -143,114 +138,11 @@ class AgentDQN(AgentBase):
             a = actions[i]
             p.append(s[i][a])
 
-        #torch.from_numpy(np.array(p).astype(float)).float()
-
         p = torch.stack(p)
 
         loss = self.criterion(p, v)
         loss.backward()
 
-        #p = self.model.forward(states)[[i for i in range(batch_size)], actions]
-        #print(p)
-
-        """
-        for i in range(batch_size):
-            s, a, r, s1, d = states[i], actions[i], rewards[i], next_states[i], dones[i]
-
-            if not d:
-                v = r + 0.99 * torch.max(self.model.forward(s1))
-            else:
-                v = r
-
-            p = self.model.forward(s)[a]
-            loss = self.criterion(p, v)
-            loss.backward()
-        """
-
-
-
-
-
-
-        #values = torch.FloatTensor(batch_size)
-        """
-        max_ns = torch.FloatTensor(batch_size)
-        predictions = torch.FloatTensor(batch_size)
-
-        with torch.no_grad():
-            for i in range(batch_size):
-                s, a, r, s1, d = minibatch[i]
-                if not d:
-                    max_ns[i] = torch.max(self.model.forward(s1).cpu()).cpu()
-                else:
-                    max_ns[i] = torch.tensor(0.0)
-                predictions[i] = self.model.forward(s)[a].cpu()
-
-            #values[i].to(self.device)
-
-        max_ns = max_ns.to(self.device)
-        predictions = predictions.to(self.device)
-
-        for i in range(batch_size):
-            s, a, r, s1, d = minibatch[i]
-            #p = predictions[i]
-            p = self.model.forward(s)[a]
-            v = r + 0.99 * max_ns[i]
-            loss = self.criterion(p, v)
-            loss.backward()
-
-        """
-
-        #with torch.no_grad():
-
-
-
-
-        """
-        minibatch = np.array(minibatch, dtype=object)
-        rewards = minibatch[:, 2].astype(float)
-        next_states = minibatch[:, 3]
-        dones = minibatch[:, 4]
-        not_dones = ~dones
-
-        ns_values = []
-
-        for i in range(len(minibatch)):
-            s, a, r, s1, d = minibatch[i]
-            
-
-
-        with torch.no_grad():
-            for next_state in next_states:
-                nsv = torch.max(self.model.forward(next_state))
-                ns_values.append(nsv)
-
-        #rewards[not_dones] += 0.99 * float(torch.max(self.model.forward(next_states)))
-        q_targets = rewards.copy()
-        for v in q_targets:
-            v += 0.99
-
-
-        """
-
-        """
-        values = []
-
-        for i in range(batch_size):
-            sample = minibatch[i]
-            s, a, r, s1, d = sample
-            if not d:
-                v = 
-        """
-
-        """
-        for i in range(batch_size):
-            sample = minibatch[i]
-            total_loss += self.update_q(sample)
-
-
-        """
-        print("batch size:", self.batch_size)
         avg_loss = total_loss/batch_size
 
         self.optimizer.step()
@@ -273,29 +165,29 @@ class AgentDQN(AgentBase):
 
         return int(loss)
 
-    def save_model(self):
-        torch.save(self.model.state_dict(), 'models/DQN2.pth')
-        print("model saved")
-
-    def load_model(self, criterion, model, N):
+    def load_model(self):
         self.device = "cpu"
         if torch.cuda.is_available():
             self.device = "cuda:0"
 
-        self.criterion = criterion
-        self.model = model
-        self.model.load_state_dict(torch.load('models/DQN2.pth'))
+        self.criterion = nn.MSELoss()
+        self.model = Models.ConvLinearNNMult(self.downscale[0], self.downscale[1], len(self.actions))
+
+        if exists(self.model_path):
+            self.model.load_state_dict(torch.load(self.model_path))
 
         self.model.set_device(self.device)
         self.model.to(self.device)
 
         self.criterion.to(self.device)
 
-        self.N = N
-        self.optimizer = optim.Adam(self.model.parameters(), lr=1e-4)
+        self.optimizer = optim.SGD(self.model.parameters(), lr=1e-4)
         self.memory = deque([], maxlen=self.N)
         print("model loaded")
 
+    def save_model(self):
+        torch.save(self.model.state_dict(), self.model_path)
+        print("model saved")
 
 class AgentDoubleDQN(AgentBase):
     def __init__(self):

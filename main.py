@@ -99,23 +99,22 @@ start_training_ddqn(1)
 resume_training_ddqn(1000)
 """
 
-def start_training_dqn(n=100):
-    criterion = nn.MSELoss()
-    x_size = 320
-    y_size = 240
-    img_size = int(x_size * y_size) * 3
-    action_space = 3
-    N = 10000
+def train_dqn():
+    episodes_per_epoch = 3
+    epochs = 3
+    agentDQN = Agent.AgentDQN()
+    doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agentDQN)
+    doomEnv.run_statistics(episodes_per_epoch=episodes_per_epoch, epoch_count=epochs)
+
+
+def start_training_dqn():
+    episodes_per_epoch = 2
+    epochs = 3
 
     agentDQN = Agent.AgentDQN()
 
     doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agentDQN)
-    model = Models.ConvLinearNNMult(doomEnv.downscale[0], doomEnv.downscale[1], action_space)
-    #model = Models.ConvLinearNN2(doomEnv.downscale[0], doomEnv.downscale[1], action_space)
-    agentDQN.set_model(criterion, model, N)
-    doomEnv.run_statistics(episode_count=n)
-
-    agentDQN.save_model()
+    doomEnv.run_statistics(episodes_per_epoch=episodes_per_epoch, epoch_count=epochs)
 
 def resume_training_dqn(n=100):
     criterion = nn.MSELoss()
@@ -137,6 +136,8 @@ def resume_training_dqn(n=100):
     agentDQN.save_model()
 
 
-start_training_dqn(1)
-resume_training_dqn(1000)
+#start_training_dqn(100)
+#resume_training_dqn(1000)
+
+train_dqn()
 
