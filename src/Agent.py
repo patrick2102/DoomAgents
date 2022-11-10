@@ -36,7 +36,7 @@ class AgentRandom(AgentBase):
 
 
 class AgentDQN(AgentBase):
-    def __init__(self, memory_size=30000, model_name='DQNInitial'):
+    def __init__(self, memory_size=20000, model_name='DQNInitial'):
         super().__init__()
         self.criterion = None
         self.model = None
@@ -44,7 +44,7 @@ class AgentDQN(AgentBase):
         self.N = memory_size
         self.memory = None
         self.batch_size = 64
-        self.exploration = 1.0
+        self.exploration = 0.1
         self.exploration_decay = 0.999
         self.min_exploration = 0.1
         self.downscale = (30, 45)
@@ -184,7 +184,7 @@ class AgentDQN(AgentBase):
         print("model saved")
 
 class AgentDuelDQN(AgentBase):
-    def __init__(self, memory_size=30000, model_name='DuelDQNInitial'):
+    def __init__(self, memory_size=20000, model_name='DuelDQNInitial'):
         super().__init__()
         self.criterion = None
         self.model = None
@@ -193,7 +193,7 @@ class AgentDuelDQN(AgentBase):
         self.memory = None
         self.batch_size = 64
         self.exploration = 1.0
-        self.exploration_decay = 0.999
+        self.exploration_decay = 0.995
         self.min_exploration = 0.1
         self.downscale = (30, 45)
         self.model_path = 'models/'+model_name+'.pth'
@@ -259,8 +259,8 @@ class AgentDuelDQN(AgentBase):
         self.remember(state, action, reward, next_state, done)
 
         if len(self.memory) >= self.batch_size:
-            avg_loss = self.replay(self.batch_size)
-            return avg_loss
+            loss = self.replay(self.batch_size)
+            return loss
 
         """
         if done:
@@ -301,10 +301,33 @@ class AgentDuelDQN(AgentBase):
         loss = self.criterion(p, v)
         loss.backward()
 
-        avg_loss = total_loss/batch_size
-
         self.optimizer.step()
-        return avg_loss
+        return loss.item()
+
+    def set_model_configuration(self, config):
+        self.device = "cpu"
+        if torch.cuda.is_available():
+            self.device = "cuda:0"
+
+        self.criterion = nn.MSELoss()
+        self.model = Models.DuelNetworkConfigurable(self.downscale[0], self.downscale[1],
+                                                    len(self.actions),  self.stack_size+1,
+                                                    c1=config["c1"], c2=config["c2"],
+                                                    c3=config["c3"], c4=config["c4"])
+
+
+
+        if exists(self.model_path):
+            self.model.load_state_dict(torch.load(self.model_path))
+
+        self.model.set_device(self.device)
+        self.model.to(self.device)
+
+        self.criterion.to(self.device)
+
+        self.optimizer = optim.SGD(self.model.parameters(), 1e-4)
+        self.memory = deque([], maxlen=self.N)
+        print("model loaded")
 
     def load_model(self):
         self.device = "cpu"
@@ -312,7 +335,8 @@ class AgentDuelDQN(AgentBase):
             self.device = "cuda:0"
 
         self.criterion = nn.MSELoss()
-        self.model = Models.DuelNetwork(self.downscale[0], self.downscale[1], len(self.actions),  self.stack_size+1)
+        self.model = Models.DuelNetworkConfigurable(self.downscale[0], self.downscale[1],
+                                                    len(self.actions),  self.stack_size+1)
 
         if exists(self.model_path):
             self.model.load_state_dict(torch.load(self.model_path))

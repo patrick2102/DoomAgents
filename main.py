@@ -1,4 +1,4 @@
-from src import DoomEnvironment, Agent, Models, EvolutionaryAgents
+from src import DoomEnvironment, Agent, Models, EvolutionaryAgents, Tuning
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -107,6 +107,13 @@ def train_dqn():
     doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agentDQN)
     doomEnv.run_statistics(episodes_per_epoch=episodes_per_epoch, epoch_count=epochs)
 
+def tune_dueldqn():
+    episodes_per_epoch = 1000
+    samples = 10
+    epochs = 10
+    #agentDQN = Agent.AgentDuelDQN(model_name='DDQN')
+    #doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agentDQN)
+    Tuning.run_tuning(episodes_per_epoch, samples, epochs)
 
-train_dqn()
+tune_dueldqn()
 
