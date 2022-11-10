@@ -36,7 +36,7 @@ class AgentRandom(AgentBase):
 
 
 class AgentDQN(AgentBase):
-    def __init__(self, memory_size=10000, model_name='default_dqn'):
+    def __init__(self, memory_size=30000, model_name='DuelDQNInitial3'):
         super().__init__()
         self.criterion = None
         self.model = None
@@ -164,8 +164,9 @@ class AgentDQN(AgentBase):
             self.device = "cuda:0"
 
         self.criterion = nn.MSELoss()
-        self.model = Models.ConvLinearNNMult(self.downscale[0], self.downscale[1],
-                                             len(self.actions), self.stack_size+1, self.batch_size)
+        #self.model = Models.ConvLinearNNMult(self.downscale[0], self.downscale[1],
+        #                                     len(self.actions), self.stack_size+1, self.batch_size)
+        #self.model = Models.DuelNetwork(self.downscale[0], self.downscale[1], len(self.actions))
 
         if exists(self.model_path):
             self.model.load_state_dict(torch.load(self.model_path))
