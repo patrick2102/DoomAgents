@@ -94,7 +94,7 @@ def run_tuning(episodes_per_epoch, num_samples=10, max_num_epochs=10):
     scheduler = tune.schedulers.ASHAScheduler(
         metric="mean_score",
         mode="max",
-        max_t=max_num_epochs,
+        max_t=episodes_per_epoch,
         grace_period=1,
         reduction_factor=2
     )
