@@ -377,7 +377,7 @@ class DuelNetwork(Model):
         state_value = self.state_value(x1).reshape(-1,1)
         advantage_value = self.advantage_value(x2)
 
-        q = state_value + advantage_value - advantage_value.mean()
+        q = state_value + (advantage_value - advantage_value.mean(dim=1).reshape(-1, 1))
 
         return q
 

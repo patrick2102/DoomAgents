@@ -36,7 +36,7 @@ class AgentRandom(AgentBase):
 
 
 class AgentDQN(AgentBase):
-    def __init__(self, memory_size=10000, model_name='default_dqn'):
+    def __init__(self, memory_size=30000, model_name='DuelDQNInitial3'):
         super().__init__()
         self.criterion = None
         self.model = None
@@ -45,7 +45,7 @@ class AgentDQN(AgentBase):
         self.memory = None
         self.batch_size = 64
         self.exploration = 1.0
-        self.exploration_decay = 0.99
+        self.exploration_decay = 0.9995
         self.min_exploration = 0.1
         self.downscale = (30, 45)
         self.model_path = 'models/'+model_name+'.pth'
