@@ -129,10 +129,13 @@ class DoomEnvironmentInstance:
                 step_count = 0
                 start = time.time()
                 done = False
+                first_run = True
+                prev_frames = deque([None, None, None, None], maxlen=4)
 
                 while not done:
-                    state = game.get_state()
-                    action = agent.get_action(state)
+                    game_state = copy.deepcopy(game.get_state().screen_buffer)
+                    frames = [game_state] + copy.deepcopy(list(prev_frames))  # make sure list doesn't get updated in loop below
+                    action = agent.get_action(frames)
                     reward = game.make_action(action)
 
                     done = game.is_episode_finished()
@@ -143,14 +146,24 @@ class DoomEnvironmentInstance:
                         game.advance_action()
                         done = game.is_episode_finished()
 
+                        if done:
+                            break
+
+                        game_state = copy.deepcopy(game.get_state().screen_buffer)
+                        prev_frames.append(game_state)
+                        done = game.is_episode_finished()
+
                     if not done:
-                        next_state = game.get_state()
+                        next_state = copy.deepcopy(game.get_state().screen_buffer)
                     else:
                         next_state = None
 
-                    avg_loss += agent.train(state, action, next_state, reward, done)
+                    next_state = [next_state] + copy.deepcopy(list(prev_frames))
+
+                    avg_loss += agent.train(frames, action, next_state, reward, done)
 
                     step_count += 1
+                    first_run = False
 
                 end = time.time()
 

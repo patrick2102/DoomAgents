@@ -45,26 +45,37 @@ class AgentDQN(AgentBase):
         self.memory = None
         self.batch_size = 64
         self.exploration = 1.0
-        self.exploration_decay = 0.9995
+        self.exploration_decay = 0.999
         self.min_exploration = 0.1
         self.downscale = (30, 45)
         self.model_path = 'models/'+model_name+'.pth'
+        self.stack_size = 4
+        self.state_stack = deque([], maxlen=self.stack_size)
+        self.next_state_stack = deque([], maxlen=self.stack_size)
 
     def preprocess(self, state):
-        s = state.screen_buffer
+        states = []
+        for s in state:
+            if s is None:
+                s = np.zeros(self.downscale).astype(np.float32)
+            else:
+                s = np.moveaxis(s, 0, 2)
 
-        s = np.moveaxis(s, 0, 2)
+                s = cv2.resize(s, self.downscale, interpolation=cv2.INTER_AREA)
+                s = cv2.cvtColor(s, cv2.COLOR_RGB2GRAY)
 
-        s = cv2.resize(s, self.downscale, interpolation=cv2.INTER_AREA)
-        s = cv2.cvtColor(s, cv2.COLOR_RGB2GRAY)
+                s = np.moveaxis(s, 1, 0)
 
-        s = np.moveaxis(s, 1, 0)
+                s = np.array(s, dtype=float) / 255
 
-        s = np.array(s, dtype=float) / 255
+                #s = np.expand_dims(s, axis=0)
 
-        s = np.expand_dims(s, axis=0)
+            states.append(s)
 
-        return s
+        states = np.array(states)
+        #states = np.moveaxis(states, 0, 1)
+
+        return states
 
     def decay_exploration(self):
         if len(self.memory) >= self.batch_size:
@@ -75,10 +86,8 @@ class AgentDQN(AgentBase):
 
     def remember(self, state, action, reward, next_state, done):
         state = self.preprocess(state)
-        if next_state is None:
-            next_state = np.zeros((1, 30, 45)).astype(np.float32)
-        else:
-            next_state = self.preprocess(next_state)
+        next_state = self.preprocess(next_state)
+
         action = self.actions.index(action)
         self.memory.append([state, action, reward, next_state, done])
 
@@ -91,7 +100,8 @@ class AgentDQN(AgentBase):
             state = self.preprocess(state)
             state = [torch.tensor(state).float().cpu()]
             state = torch.stack(state)
-            action_index = int(self.model.predict(state))
+            with torch.no_grad():
+                action_index = int(self.model.predict(state))
             action = self.actions[action_index]
 
         return action
@@ -148,30 +158,14 @@ class AgentDQN(AgentBase):
         self.optimizer.step()
         return avg_loss
 
-    def update_q(self, sample):
-        s, a, r, s1, d = sample
-
-        r = torch.tensor(r)
-        if not d:
-            v = r + 0.99 * torch.max(self.model.forward(s1))
-        else:
-            v = r
-
-        v = v.to(self.device)
-
-        pred = self.model.forward(s)[a]
-        loss = self.criterion(pred, v)
-        loss.backward()
-
-        return int(loss)
-
     def load_model(self):
         self.device = "cpu"
         if torch.cuda.is_available():
             self.device = "cuda:0"
 
         self.criterion = nn.MSELoss()
-        self.model = Models.ConvLinearNNMult(self.downscale[0], self.downscale[1], len(self.actions))
+        self.model = Models.ConvLinearNNMult(self.downscale[0], self.downscale[1],
+                                             len(self.actions), self.stack_size+1, self.batch_size)
 
         if exists(self.model_path):
             self.model.load_state_dict(torch.load(self.model_path))

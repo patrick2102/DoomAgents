@@ -220,7 +220,7 @@ class ConvLinearNN2(Model):
         return torch.argmax(x)
 
 class ConvLinearNNMult(Model):
-    def __init__(self, x_size, y_size, action_space, batch_size=1024):
+    def __init__(self, x_size, y_size, action_space, stack_size, batch_size):
         super(ConvLinearNNMult, self).__init__()
         self.batch_size = batch_size
 
@@ -233,7 +233,7 @@ class ConvLinearNNMult(Model):
         ks = 3
         #self.conv1 = nn.Conv2d(1, 8, ks, bias=True)
         self.conv1 = nn.Sequential(
-                nn.Conv2d(1, 32, ks, bias=False),
+                nn.Conv2d(stack_size, 32, ks, bias=False),
                 nn.BatchNorm2d(32),
                 nn.ReLU()
             )
