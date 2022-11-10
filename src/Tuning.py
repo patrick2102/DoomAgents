@@ -65,10 +65,9 @@ def tune_train(config, episodes_per_epoch=1000):
         total_reward += game.get_total_reward()
         total_loss += loss
 
-        if e % 100 == 0:
-            mean_score = sum(scores)/len(scores)
-            mean_loss = total_loss/(e+1)
-            tune.report(mean_score=mean_score, mean_loss=mean_loss)
+        mean_score = sum(scores)/len(scores)
+        mean_loss = total_loss/(e+1)
+        tune.report(mean_score=mean_score, mean_loss=mean_loss, exploration=agent.exploration)
 
         #writer.add_scalar('Score', game.get_total_reward(), e)
         #writer.add_scalar('Exploration', agent.exploration, e)
@@ -102,7 +101,7 @@ def run_tuning(episodes_per_epoch, num_samples=10, max_num_epochs=10):
 
     reporter = tune.CLIReporter(
         # parameter_columns=["l1", "l2", "lr", "batch_size"],
-        metric_columns=["mean_score", "mean_loss", "training_iteration"])
+        metric_columns=["mean_score", "mean_loss", "exploration", "training_iteration"])
 
     #partial(tune_train, game, agent, episodes_per_epoch),
     result = tune.run(
