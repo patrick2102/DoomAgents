@@ -13,8 +13,7 @@ from src import Agent, DoomEnvironment
 
 #def tune_train(game, agent, episodes_per_epoch, config):
 def tune_train(config, episodes_per_epoch=1000):
-    writer = SummaryWriter()
-    writer.log_dir = "C:/Uni/3rd_Semester/DeepLearning/Project/DoomAgents/tuning"
+    #writer = SummaryWriter()
     #agent.load_model()
     agent = Agent.AgentDuelDQN(model_name='DDQN')
     doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agent, hardcoded_path=True)
@@ -25,6 +24,7 @@ def tune_train(config, episodes_per_epoch=1000):
     total_loss = 0
     tics_per_action = 6
     total_reward = 0
+    scores = deque([], maxlen=100)
     for e in range(episodes_per_epoch):
         game.new_episode()
         done = False
@@ -61,15 +61,25 @@ def tune_train(config, episodes_per_epoch=1000):
 
             loss += agent.train(frames, action, next_state, reward, done)
 
+        scores.append(game.get_total_reward())
         total_reward += game.get_total_reward()
         total_loss += loss
 
+        if e % 100 == 0:
+            mean_score = sum(scores)/len(scores)
+            mean_loss = total_loss/(e+1)
+            tune.report(mean_score=mean_score, mean_loss=mean_loss)
+
+        #writer.add_scalar('Score', game.get_total_reward(), e)
+        #writer.add_scalar('Exploration', agent.exploration, e)
+        #writer.add_scalar('Loss', loss, e)
+
         agent.decay_exploration()
 
-    mean_score = total_reward/episodes_per_epoch
-    mean_loss = total_loss/episodes_per_epoch
+    #mean_score = total_reward/episodes_per_epoch
+    #mean_loss = total_loss/episodes_per_epoch
 
-    tune.report(mean_score, mean_loss)
+    #tune.report(mean_score, mean_loss)
     #agent.save_model()
     #return {"mean_score": mean_score}
 
