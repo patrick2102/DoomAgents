@@ -220,9 +220,8 @@ class ConvLinearNN2(Model):
         return torch.argmax(x)
 
 class ConvLinearNNMult(Model):
-    def __init__(self, x_size, y_size, action_space, stack_size, batch_size):
+    def __init__(self, x_size, y_size, action_space, stack_size):
         super(ConvLinearNNMult, self).__init__()
-        self.batch_size = batch_size
 
         rescale_factor = 1.0
         self.xs = int(x_size * rescale_factor)
@@ -286,9 +285,8 @@ class ConvLinearNNMult(Model):
         return torch.argmax(x)
 
 class DuelNetwork(Model):
-    def __init__(self, x_size, y_size, action_space, batch_size=1024):
+    def __init__(self, x_size, y_size, action_space, stack_size):
         super(DuelNetwork, self).__init__()
-        self.batch_size = batch_size
 
         rescale_factor = 1.0
         self.xs = int(x_size * rescale_factor)
@@ -299,7 +297,7 @@ class DuelNetwork(Model):
         ks = 3
         #self.conv1 = nn.Conv2d(1, 8, ks, bias=True)
         self.conv1 = nn.Sequential(
-                nn.Conv2d(1, 16, ks,  bias=False),
+                nn.Conv2d(stack_size, 16, ks,  bias=False),
                 nn.BatchNorm2d(16),
                 nn.ReLU()
             )

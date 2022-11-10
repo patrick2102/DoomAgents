@@ -166,7 +166,7 @@ class AgentDQN(AgentBase):
         self.criterion = nn.MSELoss()
         #self.model = Models.ConvLinearNNMult(self.downscale[0], self.downscale[1],
         #                                     len(self.actions), self.stack_size+1, self.batch_size)
-        #self.model = Models.DuelNetwork(self.downscale[0], self.downscale[1], len(self.actions))
+        self.model = Models.DuelNetwork(self.downscale[0], self.downscale[1], len(self.actions),  self.stack_size+1)
 
         if exists(self.model_path):
             self.model.load_state_dict(torch.load(self.model_path))
