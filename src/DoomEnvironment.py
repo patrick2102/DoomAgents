@@ -167,37 +167,30 @@ class DoomEnvironmentInstance:
 
         agent.load_model()
 
-        total_time = 0
-
-        total_reward = 0
-
         tics_per_action = 12
-
-        scores = deque([], maxlen=100)
+        first_run = True
+        episodes_per_test = int(episodes_per_epoch/10)
 
         for epoch in range(epoch_count):
-
-            print("epoch: ", epoch)
+            print("epoch: ", epoch+1)
             for e in range(episodes_per_epoch):
                 game.new_episode()
-                running_loss = 0
-                step_count = 0
-                start = time.time()
                 done = False
+                loss = 0
                 prev_frames = deque([None, None, None, None], maxlen=4)
+                step_count = 0
 
                 while not done:
+                    step_count += 1
                     game_state = copy.deepcopy(game.get_state().screen_buffer)
-                    frames = [game_state] + copy.deepcopy(list(prev_frames))  # make sure list doesn't get updated in loop below
+                    frames = copy.deepcopy(list(prev_frames))[1:] + [game_state]  # make sure list doesn't get updated in loop below
                     action = agent.get_action(frames)
-                    reward = game.make_action(action)
+                    reward = 0
 
-                    done = game.is_episode_finished()
-
+                    game.set_action(action)
                     for i in range(tics_per_action):
-                        if done:
-                            break
                         game.advance_action()
+                        reward += game.get_last_reward()
                         done = game.is_episode_finished()
 
                         if done:
@@ -205,37 +198,47 @@ class DoomEnvironmentInstance:
 
                         game_state = copy.deepcopy(game.get_state().screen_buffer)
                         prev_frames.append(game_state)
+
+                    next_state = copy.deepcopy(list(prev_frames))
+                    #print("reward: ", reward)
+
+                    loss += agent.train(frames, action, next_state, reward, done)
+
+                if not first_run:
+                    agent.decay_exploration()
+
+                loss /= step_count
+
+                writer.add_scalar('Loss_epoch_size_'+str(episodes_per_epoch), loss, e+epoch*episodes_per_epoch)
+                writer.add_scalar('Reward_epoch_size_'+str(episodes_per_epoch), game.get_total_reward(), e+epoch*episodes_per_epoch)
+                writer.add_scalar('Exploration_epoch_size_'+str(episodes_per_epoch), agent.exploration, e+epoch*episodes_per_epoch)
+
+            for e in range(episodes_per_test):
+                game.new_episode()
+                done = False
+                prev_frames = deque([None, None, None, None], maxlen=4)
+
+                while not done:
+                    game_state = copy.deepcopy(game.get_state().screen_buffer)
+                    frames = copy.deepcopy(list(prev_frames))[1:] + [game_state]  # make sure list doesn't get updated in loop below
+                    action = agent.get_action(frames, explore=False)
+                    reward = 0
+
+                    game.set_action(action)
+                    for i in range(tics_per_action):
+                        game.advance_action()
+                        reward += game.get_last_reward()
                         done = game.is_episode_finished()
 
-                    if not done:
-                        next_state = copy.deepcopy(game.get_state().screen_buffer)
-                    else:
-                        next_state = None
+                        if done:
+                            break
 
-                    next_state = [next_state] + copy.deepcopy(list(prev_frames))
+                        game_state = copy.deepcopy(game.get_state().screen_buffer)
+                        prev_frames.append(game_state)
 
-                    loss = agent.train(frames, action, next_state, reward, done)
+                writer.add_scalar('Score_epoch_size_'+str(episodes_per_epoch), game.get_total_reward(), e+epoch*episodes_per_epoch)
 
-                    if loss != -1:
-                        running_loss += loss
+            agent.update_target_model()
 
-                    step_count += 1
-
-                end = time.time()
-
-                agent.decay_exploration()
-
-                #total_time += (end-start)/step_count
-                avg_time = (end-start)/step_count
-                total_reward += game.get_total_reward()
-                scores.append(game.get_total_reward())
-                avg_reward = sum(scores)/len(scores)
-                writer.add_scalar('Score', game.get_total_reward(), e)
-                writer.add_scalar('Exploration', agent.exploration, e)
-                writer.add_scalar('Loss', running_loss, e)
-
-                time.sleep(0.1)
-
-            scores.clear()
-
+            first_run = False
             agent.save_model()

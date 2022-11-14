@@ -100,20 +100,23 @@ resume_training_ddqn(1000)
 """
 
 def train_dqn():
-    episodes_per_epoch = 1000
+    episodes_per_epoch = 100
     epochs = 10
     #agentDQN = Agent.AgentDQN(model_name='DQN_framestack')
-    agentDQN = Agent.AgentDuelDQN(model_name='DDQN')
-    doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agentDQN)
+    agentDQN = Agent.AgentDuelDQN(model_name='DDQN_Opt4')
+    doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/simpler_basic.cfg", agentDQN)
     doomEnv.run_statistics(episodes_per_epoch=episodes_per_epoch, epoch_count=epochs)
 
 def tune_dueldqn():
-    episodes_per_epoch = 1000
+    episodes_per_epoch = 100
     samples = 10
     epochs = 10
     #agentDQN = Agent.AgentDuelDQN(model_name='DDQN')
     #doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agentDQN)
     Tuning.run_tuning(episodes_per_epoch, samples, epochs)
+    #Tuning.tune_learning_rate(episodes_per_epoch, samples, epochs)
 
-tune_dueldqn()
+#tune_dueldqn()
+
+train_dqn()
 

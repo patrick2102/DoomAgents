@@ -62,7 +62,10 @@ class AgentDQN(AgentBase):
                 s = np.moveaxis(s, 0, 2)
 
                 s = cv2.resize(s, self.downscale, interpolation=cv2.INTER_AREA)
+
                 s = cv2.cvtColor(s, cv2.COLOR_RGB2GRAY)
+
+                cv2.imshow("image", s)
 
                 s = np.moveaxis(s, 1, 0)
 
@@ -184,16 +187,17 @@ class AgentDQN(AgentBase):
         print("model saved")
 
 class AgentDuelDQN(AgentBase):
-    def __init__(self, memory_size=20000, model_name='DuelDQNInitial'):
+    def __init__(self, memory_size=10000, model_name='DuelDQNInitial'):
         super().__init__()
         self.criterion = None
         self.model = None
+        self.target_model = None
         self.optimizer = None
         self.N = memory_size
         self.memory = None
         self.batch_size = 64
         self.exploration = 1.0
-        self.exploration_decay = 0.995
+        self.exploration_decay = 0.99
         self.min_exploration = 0.1
         self.downscale = (30, 45)
         self.model_path = 'models/'+model_name+'.pth'
@@ -208,9 +212,11 @@ class AgentDuelDQN(AgentBase):
                 s = np.zeros(self.downscale).astype(np.float32)
             else:
                 s = np.moveaxis(s, 0, 2)
+                #cv2.imshow("image", s)
 
                 s = cv2.resize(s, self.downscale, interpolation=cv2.INTER_AREA)
                 s = cv2.cvtColor(s, cv2.COLOR_RGB2GRAY)
+
 
                 s = np.moveaxis(s, 1, 0)
 
@@ -239,9 +245,9 @@ class AgentDuelDQN(AgentBase):
         action = self.actions.index(action)
         self.memory.append([state, action, reward, next_state, done])
 
-    def get_action(self, state):
+    def get_action(self, state, explore=True):
 
-        if random.random() < self.exploration:
+        if random.random() < self.exploration and explore:
             action_index = random.randint(0, len(self.actions)-1)
             action = self.actions[action_index]
         else:
@@ -287,7 +293,11 @@ class AgentDuelDQN(AgentBase):
         not_dones = ~dones
         not_dones = not_dones.int()
 
-        v = rewards + 0.99 * torch.max(self.model.forward(next_states), dim=1)[0] * not_dones
+        with torch.no_grad():
+            #next_state_values = torch.max(self.target_model.forward(next_states), dim=1)[0]
+            next_state_values = torch.max(self.model.forward(next_states), dim=1)[0]
+
+        v = rewards + 0.99 * next_state_values * not_dones
 
         s = self.model.forward(states)
         p = []
@@ -304,6 +314,9 @@ class AgentDuelDQN(AgentBase):
         self.optimizer.step()
         return loss.item()
 
+    def update_target_model(self):
+        self.target_model.load_state_dict(self.model.state_dict())
+
     def set_model_configuration(self, config):
         self.device = "cpu"
         if torch.cuda.is_available():
@@ -311,21 +324,27 @@ class AgentDuelDQN(AgentBase):
 
         self.criterion = nn.MSELoss()
         self.model = Models.DuelNetworkConfigurable(self.downscale[0], self.downscale[1],
-                                                    len(self.actions),  self.stack_size+1,
+                                                    len(self.actions),  self.stack_size,
                                                     c1=config["c1"], c2=config["c2"],
                                                     c3=config["c3"], c4=config["c4"])
 
-
+        self.target_model = Models.DuelNetworkConfigurable(self.downscale[0], self.downscale[1],
+                                                    len(self.actions),  self.stack_size,
+                                                    c1=config["c1"], c2=config["c2"],
+                                                    c3=config["c3"], c4=config["c4"])
 
         if exists(self.model_path):
             self.model.load_state_dict(torch.load(self.model_path))
 
         self.model.set_device(self.device)
         self.model.to(self.device)
+        self.target_model.set_device(self.device)
+        self.target_model.to(self.device)
 
         self.criterion.to(self.device)
 
-        self.optimizer = optim.SGD(self.model.parameters(), 1e-4)
+        self.optimizer = optim.SGD(self.model.parameters(), lr=config["lr"], momentum=config["momentum"])
+        self.optimizer = optim.SGD(self.target_model.parameters(), lr=config["lr"], momentum=config["momentum"])
         self.memory = deque([], maxlen=self.N)
         print("model loaded")
 
@@ -336,17 +355,23 @@ class AgentDuelDQN(AgentBase):
 
         self.criterion = nn.MSELoss()
         self.model = Models.DuelNetworkConfigurable(self.downscale[0], self.downscale[1],
-                                                    len(self.actions),  self.stack_size+1)
+                                                    len(self.actions),  self.stack_size)
+        self.target_model = Models.DuelNetworkConfigurable(self.downscale[0], self.downscale[1],
+                                                    len(self.actions),  self.stack_size)
 
         if exists(self.model_path):
             self.model.load_state_dict(torch.load(self.model_path))
+            self.target_model.load_state_dict(torch.load(self.model_path))
 
         self.model.set_device(self.device)
         self.model.to(self.device)
+        self.target_model.set_device(self.device)
+        self.target_model.to(self.device)
 
         self.criterion.to(self.device)
 
         self.optimizer = optim.SGD(self.model.parameters(), lr=1e-4)
+        self.optimizer = optim.SGD(self.target_model.parameters(), lr=1e-4)
         self.memory = deque([], maxlen=self.N)
         print("model loaded")
 
