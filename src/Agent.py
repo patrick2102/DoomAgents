@@ -43,6 +43,7 @@ class AgentDQN(AgentBase):
         self.optimizer = None
         self.N = memory_size
         self.memory = None
+        self.lr = 0.0001
         self.batch_size = 64
         self.exploration = 0.1
         self.exploration_decay = 0.999
@@ -178,7 +179,7 @@ class AgentDQN(AgentBase):
 
         self.criterion.to(self.device)
 
-        self.optimizer = optim.SGD(self.model.parameters(), lr=1e-4)
+        self.optimizer = optim.SGD(self.model.parameters(), lr=self.lr)
         self.memory = deque([], maxlen=self.N)
         print("model loaded")
 
@@ -189,6 +190,7 @@ class AgentDQN(AgentBase):
 class AgentDuelDQN(AgentBase):
     def __init__(self, memory_size=10000, model_name='DuelDQNInitial'):
         super().__init__()
+        self.lr = 0.0001
         self.criterion = None
         self.model = None
         self.target_model = None
@@ -322,6 +324,8 @@ class AgentDuelDQN(AgentBase):
         if torch.cuda.is_available():
             self.device = "cuda:0"
 
+        self.lr = config["lr"]
+
         self.criterion = nn.MSELoss()
         self.model = Models.DuelNetworkConfigurable(self.downscale[0], self.downscale[1],
                                                     len(self.actions),  self.stack_size,
@@ -370,8 +374,8 @@ class AgentDuelDQN(AgentBase):
 
         self.criterion.to(self.device)
 
-        self.optimizer = optim.SGD(self.model.parameters(), lr=1e-4)
-        self.optimizer = optim.SGD(self.target_model.parameters(), lr=1e-4)
+        self.optimizer = optim.SGD(self.model.parameters(), lr=self.lr)
+        self.optimizer = optim.SGD(self.target_model.parameters(), lr=self.lr)
         self.memory = deque([], maxlen=self.N)
         print("model loaded")
 
