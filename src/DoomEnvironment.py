@@ -236,7 +236,7 @@ class DoomEnvironmentInstance:
                         game_state = copy.deepcopy(game.get_state().screen_buffer)
                         prev_frames.append(game_state)
 
-                writer.add_scalar('Score_epoch_size_'+str(episodes_per_epoch), game.get_total_reward(), e+epoch*episodes_per_epoch)
+                writer.add_scalar('Score_epoch_size_'+str(episodes_per_epoch), game.get_total_reward(), e+epoch*episodes_per_test)
 
             agent.update_target_model()
 

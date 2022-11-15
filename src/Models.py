@@ -298,8 +298,8 @@ class DuelNetwork(Model):
         ks = 3
         #self.conv1 = nn.Conv2d(1, 8, ks, bias=True)
         self.conv1 = nn.Sequential(
-                nn.Conv2d(stack_size, 16, ks,  bias=False),
-                nn.BatchNorm2d(16),
+                nn.Conv2d(stack_size, 8, ks,  bias=False),
+                nn.BatchNorm2d(8),
                 nn.ReLU()
             )
         img_x -= (ks - 1)
@@ -308,8 +308,8 @@ class DuelNetwork(Model):
         ks = 3
         #self.conv2 = nn.Conv2d(8, 16, ks, bias=True)
         self.conv2 = nn.Sequential(
-                nn.Conv2d(16, 32, ks,  bias=False),
-                nn.BatchNorm2d(32),
+                nn.Conv2d(8, 8, ks,  bias=False),
+                nn.BatchNorm2d(8),
                 nn.ReLU()
             )
         img_x -= (ks - 1)
@@ -318,8 +318,8 @@ class DuelNetwork(Model):
         
         ks = 3
         self.conv3 = nn.Sequential(
-                nn.Conv2d(32, 32, ks,  bias=False),
-                nn.BatchNorm2d(32),
+                nn.Conv2d(8, 8, ks,  bias=False),
+                nn.BatchNorm2d(8),
                 nn.ReLU()
             )
         img_x -= (ks - 1)
@@ -328,8 +328,8 @@ class DuelNetwork(Model):
         
         ks = 3
         self.conv4 = nn.Sequential(
-                nn.Conv2d(32, 64, ks,  bias=False),
-                nn.BatchNorm2d(64),
+                nn.Conv2d(8, 16, ks,  bias=False),
+                nn.BatchNorm2d(16),
                 nn.ReLU()
             )
         img_x -= (ks - 1)
@@ -338,7 +338,7 @@ class DuelNetwork(Model):
         ks = 3
         ks_stride = 1
         
-        self.img_size = (64 * img_x * img_y)
+        self.img_size = (16 * img_x * img_y)
         print(self.img_size)
 
         linearInputSize = int(self.img_size/2)
