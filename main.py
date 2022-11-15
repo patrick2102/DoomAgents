@@ -120,5 +120,20 @@ def tune_dueldqn():
 
 #train_dqn()
 
-newAgent = Agent.AgentNew(model_name='DDQN_New')
-newAgent.start_training("scenarios/simpler_basic.cfg")
+#newAgent = Agent.AgentNew(model_name='DoubleDuelDQN')
+#newAgent.start_training("scenarios/basic.cfg")
+
+
+#agentDQN = Agent.AgentDQN(model_name='DDQN')
+#agentDQN.start_training("scenarios/simpler_basic.cfg")
+#agentDQN.start_training("scenarios/simpler_basic.cfg")
+
+#agentDuelDQN = Agent.AgentDuelDQN()
+#agentDuelDQN.start_training("scenarios/simpler_basic.cfg")
+
+agentDoubleDuelDQN = Agent.AgentDoubleDuelDQN()
+agentDoubleDuelDQN.start_training("scenarios/basic.cfg", epoch_count=100)
+
+#while True:
+#    continue
+

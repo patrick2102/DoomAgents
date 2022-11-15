@@ -26,198 +26,75 @@ class Model(nn.Module):
     def predict(self, x):
         raise NotImplementedError
 
+class DQNModel(Model):
+    def __init__(self, x_size, y_size, action_space, c1=8, c2=8, c3=8, c4=16, d1=100, stack_size=1):
+        super(DQNModel, self).__init__()
 
-class SimpleLinearNN(Model):
-    def __init__(self, x_size, y_size, action_space, dim=3):
-        super(SimpleLinearNN, self).__init__()
-        rescale_factor = 0.2
+        print("Running DQNModel")
+
+        rescale_factor = 1.0
         self.xs = int(x_size * rescale_factor)
         self.ys = int(y_size * rescale_factor)
-        img_size = (self.xs * self.ys) * dim
-        self.dense1 = nn.Linear(img_size, 100)
-        self.dense2 = nn.Linear(100, action_space)
+        img_x = self.xs
+        img_y = self.ys
 
-    def forward(self, x):
-        x = torch.FloatTensor(x)
-        x = x.to(self.device)
-        x = T.resize(x, size=[self.xs, self.ys])
-        x = torch.flatten(x)
-        #x = self.conv1(x)
-        #x = x.reshape(x.shape[0], -1)
-        x = self.dense1(x)
-        x = F.relu(x)
-        x = self.dense2(x)
-        return x
-
-    def predict(self, x):
-        x = self.forward(x)
-        print(x)
-        return torch.argmax(x)
-
-
-class SimpleConvNN(Model):
-    def __init__(self, x_size, y_size, action_space, dim=3):
-        super(SimpleConvNN, self).__init__()
-        self.x_size = x_size
-        self.y_size = y_size
         ks = 3
-        self.conv1 = nn.Conv2d(dim, 64, ks)
-        self.x_size -= 2
-        self.y_size -= 2
-        self.conv2 = nn.Conv2d(64, 1, ks)
-        self.x_size -= 2
-        self.y_size -= 2
-        self.dense1 = nn.Linear(self.x_size * self.y_size, action_space)
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(stack_size, c1, ks, bias=False),
+            nn.BatchNorm2d(c1),
+            nn.ReLU()
+        )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        ks = 3
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(c1, c2, ks, bias=False),
+            nn.BatchNorm2d(c2),
+            nn.ReLU()
+        )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        ks = 3
+        self.conv3 = nn.Sequential(
+            nn.Conv2d(c2, c3, ks, bias=False),
+            nn.BatchNorm2d(c3),
+            nn.ReLU()
+        )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        ks = 3
+        self.conv4 = nn.Sequential(
+            nn.Conv2d(c3, c4, ks, bias=False),
+            nn.BatchNorm2d(c4),
+            nn.ReLU()
+        )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        self.img_size = (c4 * img_x * img_y)
+        linearInputSize = int(self.img_size)
+
+        self.dense = nn.Sequential(
+            nn.Linear(linearInputSize, d1),
+            nn.ReLU(),
+            nn.Linear(d1, action_space)
+        )
 
     def forward(self, x):
-        x = torch.FloatTensor(x)
         x = x.to(self.device)
         x = self.conv1(x)
-        x = F.relu(x)
         x = self.conv2(x)
-        x = torch.flatten(x)
-        #x = x.
-        #x = x.reshape(x.shape[0], -1)
-        x = self.dense1(x)
-        #x = x[0]
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x = x.view(-1, self.img_size)
+        x = self.dense(x)
         return x
 
     def predict(self, x):
         x = self.forward(x)
-        print(x)
-        return torch.argmax(x)
-
-
-class ConvLinearNN(Model):
-    def __init__(self, x_size, y_size, action_space, dim=3):
-        super(ConvLinearNN, self).__init__()
-        rescale_factor = 1.0
-        self.xs = int(x_size * rescale_factor)
-        self.ys = int(y_size * rescale_factor)
-        ks = 3
-        img_x = self.xs
-        img_y = self.ys
-        self.blur_kernel = int(1/rescale_factor)
-        if self.blur_kernel % 2 == 0:
-            self.blur_kernel += 1
-        self.conv1 = nn.Conv2d(1, 8, ks)
-        img_x -= (ks-1)
-        img_y -= (ks-1)
-        ks = 3
-        self.conv2 = nn.Conv2d(8, 1, ks)
-        img_x -= (ks-1)
-        img_y -= (ks-1)
-
-        img_size = (img_x * img_y)
-        self.dense1 = nn.Linear(img_size, 100)
-        self.dense2 = nn.Linear(100, action_space)
-
-    def forward(self, x):
-        x = torch.FloatTensor(x)
-        x = x.to(self.device)
-
-        x = T.resize(x, size=(self.xs, self.ys))
-        x = T.rgb_to_grayscale(x)
-
-        x = self.conv1(x) # convolutional
-        x = F.relu(x)
-        x = self.conv2(x)
-        x = F.relu(x)
-
-        x = torch.flatten(x) # Linear
-        x = self.dense1(x)
-        x = F.relu(x)
-        x = self.dense2(x)
-        return x
-
-    def predict(self, x):
-        x = self.forward(x)
-        print(x)
-        #print(x)
-        return torch.argmax(x)
-
-# Image size recommended:
-# større end 8 eller sådan kanaler, f.eks. 32 og 64
-# kernel størrelse ikke over 10 og flere lag
-# vi kan ikke optimere uden gradients
-# prøv med forskellige hyperparameter
-# gaussian search for hyperparameters can help. Libraries
-# Hyperparameter search.
-
-# spørgsmål performance:
-#
-
-
-class ConvLinearNN2(Model):
-    def __init__(self, x_size, y_size, action_space, dim=3):
-        super(ConvLinearNN2, self).__init__()
-        rescale_factor = 1.0
-        self.xs = int(x_size * rescale_factor)
-        self.ys = int(y_size * rescale_factor)
-        img_x = self.xs
-        img_y = self.ys
-
-        ks = 8
-        self.conv1 = nn.Conv2d(1, 8, ks, bias=True)
-        img_x -= (ks - 1)
-        img_y -= (ks - 1)
-
-        ks = 5
-        self.conv2 = nn.Conv2d(8, 16, ks, bias=True)
-        img_x -= (ks - 1)
-        img_y -= (ks - 1)
-
-
-        ks = 5
-        ks_stride = 2
-        self.max_pool2d = nn.MaxPool2d(ks, stride=ks_stride)
-
-        img_x -= (ks - 1)
-        img_x /= ks_stride
-        img_y -= (ks - 1)
-        img_y /= ks_stride
-
-        img_x -= (ks - 1)
-        img_x /= ks_stride
-        img_y -= (ks - 1)
-        img_y /= ks_stride
-
-        img_x = int(img_x)
-        img_y = int(img_y)
-
-        img_size = (16 * img_x * img_y)
-        print(img_size)
-        self.dense1 = nn.Linear(img_size, 100)
-        self.dense2 = nn.Linear(100, action_space)
-
-    def forward(self, x):
-        #x = torch.FloatTensor(x)
-        #x = torch.tensor(x).float()
-        x = x.to(self.device)
-
-        #x = T.resize(x, size=(self.xs, self.ys))
-        #x = T.rgb_to_grayscale(x)
-
-        m = self.max_pool2d
-        #batch_norm = nn.BatchNorm2d()
-
-        x = self.conv1(x)  # convolutional
-        x = F.relu(x)
-        x = m(x)
-
-        x = self.conv2(x)
-        x = F.relu(x)
-        x = m(x)
-
-        x = torch.flatten(x)
-        x = self.dense1(x)
-        x = F.relu(x)
-        x = self.dense2(x)
-        return x
-
-    def predict(self, x):
-        x = self.forward(x)
-        #print(x)
         return torch.argmax(x)
 
 class ConvLinearNNMult(Model):
@@ -390,6 +267,8 @@ class DuelNetworkConfigurable(Model):
     def __init__(self, x_size, y_size, action_space, stack_size, c1=16, c2=32, c3=32, c4=64):
         super(DuelNetworkConfigurable, self).__init__()
 
+        print("Running DuelNetworkConfigurable")
+
         rescale_factor = 1.0
         self.xs = int(x_size * rescale_factor)
         self.ys = int(y_size * rescale_factor)
@@ -483,3 +362,4 @@ class DuelNetworkConfigurable(Model):
         x = self.forward(x)
         # print(x)
         return torch.argmax(x)
+
