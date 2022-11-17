@@ -174,7 +174,7 @@ class AgentDQN(AgentBase):
         # Set up ray and training details
         writer = SummaryWriter()
         tics_per_action = 12
-        first_run = True
+        first_run = False
         episodes_per_test = int(episodes_per_epoch/10)
 
         # Epoch runs a certain amount of episodes, followed a test run to show performance.
