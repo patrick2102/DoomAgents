@@ -15,6 +15,10 @@ from src import Models
 from os.path import exists
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import trange
+from skimage import io
+from skimage.viewer import ImageViewer
+from sklearn import preprocessing
+
 
 
 class AgentBase:
@@ -63,14 +67,31 @@ class AgentDQN(AgentBase):
         super().__init__(learning_rate=learning_rate, model_name=model_name)
         self.N = memory_size
         self.memory = None
+        self.norm_rewards = None
         self.batch_size = batch_size
 
     def preprocess(self, state):
-        """Down samples image to resolution"""
-        img = skimage.transform.resize(state, self.downscale)
-        img = img.astype(np.float32)
-        img = np.expand_dims(img, axis=0)
-        return img
+        s = state
+        #s = np.moveaxis(s, 0, 2)
+
+        s = cv2.resize(s, self.downscale, interpolation=cv2.INTER_AREA)
+        #s = cv2.cvtColor(s, cv2.COLOR_RGB2GRAY)
+
+        s = np.moveaxis(s, 1, 0)
+        #s = cv2.imshow("img", s)
+        #cv2.waitKey(0)
+        #cv2.destroyAllWindows()
+
+        s = np.array(s, dtype=float)/255
+
+        #s = np.mean(s, axis=0)
+        #s = np.mean(s, axis=0)
+
+        #s = np.vstack((np.ones, s))
+        s = np.expand_dims(s, axis=0)
+        #s = np.array(s)
+
+        return s
 
     def get_action(self, state, explore=True):
         if random.random() < self.exploration and explore:
@@ -78,14 +99,16 @@ class AgentDQN(AgentBase):
             action = self.actions[action_index]
         else:
             state = np.expand_dims(state, axis=0)
-            state = torch.from_numpy(state).float().cpu()
-            action_index = int(self.model.predict(state))
+            with torch.no_grad():
+                state = torch.from_numpy(state).float().cpu()
+                action_index = int(self.model.predict(state))
             action = self.actions[action_index]
 
         return action
 
     def remember(self, state, action, reward, next_state, done):
         action = self.actions.index(action)
+        reward /= 10.0
         self.memory.append([state, action, reward, next_state, done])
 
     def train(self, state, action, next_state: GameState, reward, done=False):
@@ -98,18 +121,21 @@ class AgentDQN(AgentBase):
         return 0
 
     def replay(self, batch_size):
+        #self.normalize_rewards()
         minibatch = random.sample(self.memory, batch_size)
         self.optimizer.zero_grad()
 
         minibatch = np.array(minibatch.copy(), dtype=object)
 
-        states = torch.from_numpy(np.stack(minibatch[:, 0]).astype(float)).float().to(self.device)
+        states = torch.from_numpy(np.stack(minibatch[:, 0]).astype(np.double)).float().to(self.device)
         actions = torch.from_numpy(np.array(minibatch[:, 1]).astype(np.int64)).long().to(self.device)
         rewards = torch.from_numpy(np.array(minibatch[:, 2]).astype(float)).float().to(self.device)
-        next_states = torch.from_numpy(np.stack(minibatch[:, 3]).astype(float)).float().to(self.device)
+        next_states = torch.from_numpy(np.stack(minibatch[:, 3]).astype(np.double)).float().to(self.device)
         dones = torch.from_numpy(np.array(minibatch[:, 4]).astype(bool)).to(self.device)
         not_dones = ~dones
         not_dones = not_dones.int()
+
+        #rewards = torch.nn.functional.normalize(rewards, dim=0, p=1)
 
         row = np.arange(self.batch_size)
 
@@ -121,6 +147,10 @@ class AgentDQN(AgentBase):
 
         a = row, actions
         p = self.model.forward(states)[a]
+
+        #c = nn.functional.normalize(torch.stack((v, p)))
+
+        #v, p = c[0], c[1]
 
         loss = self.criterion(v, p)
         loss.backward()
