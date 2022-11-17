@@ -1,4 +1,4 @@
-from src import DoomEnvironment, Agent, Models, EvolutionaryAgents
+from src import DoomEnvironment, Agent, Models, EvolutionaryAgents, Tuning
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -103,10 +103,43 @@ def train_dqn():
     episodes_per_epoch = 1000
     epochs = 10
     #agentDQN = Agent.AgentDQN(model_name='DQN_framestack')
-    agentDQN = Agent.AgentDuelDQN(model_name='DDQN')
-    doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agentDQN)
+    agentDQN = Agent.AgentDuelDQN(model_name='DDQN_Opt5')
+    doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/simpler_basic.cfg", agentDQN)
     doomEnv.run_statistics(episodes_per_epoch=episodes_per_epoch, epoch_count=epochs)
 
+def tune_dueldqn():
+    episodes_per_epoch = 100
+    samples = 10
+    epochs = 10
+    #agentDQN = Agent.AgentDuelDQN(model_name='DDQN')
+    #doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agentDQN)
+    Tuning.run_tuning(episodes_per_epoch, samples, epochs)
+    #Tuning.tune_learning_rate(episodes_per_epoch, samples, epochs)
 
-train_dqn()
+#tune_dueldqn()
+
+#train_dqn()
+
+#newAgent = Agent.AgentNew(model_name='DoubleDuelDQN')
+#newAgent.start_training("scenarios/basic.cfg")
+
+
+#agentDQN = Agent.AgentDQN(model_name='DDQN')
+#agentDQN.start_training("scenarios/simpler_basic.cfg")
+#agentDQN.start_training("scenarios/simpler_basic.cfg")
+
+#agentDuelDQN = Agent.AgentDuelDQN()
+#agentDuelDQN.start_training("scenarios/simpler_basic.cfg")
+
+#agentDoubleDuelDQN = Agent.AgentDoubleDuelDQN()
+#agentDoubleDuelDQN.start_training("scenarios/basic.cfg", epoch_count=100)
+
+agentDQNHealth = Agent.AgentDQN(model_name='DQN_Health_Gather')
+agentDQNHealth.start_training("scenarios/health_gathering.cfg")
+
+#agentDoubleDuelDQN = Agent.AgentDoubleDuelDQN(model_name='DoubleDuelDQN2')
+#agentDoubleDuelDQN.start_training("scenarios/basic.cfg", epoch_count=100)
+
+#while True:
+#    continue
 
