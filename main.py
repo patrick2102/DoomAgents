@@ -134,6 +134,10 @@ def tune_dueldqn():
 agentDoubleDuelDQN = Agent.AgentDoubleDuelDQN()
 agentDoubleDuelDQN.start_training("scenarios/basic.cfg", epoch_count=100)
 
+
+#agentDoubleDuelDQN = Agent.AgentDoubleDuelDQN(model_name='DoubleDuelDQN2')
+#agentDoubleDuelDQN.start_training("scenarios/basic.cfg", epoch_count=100)
+
 #while True:
 #    continue
 
