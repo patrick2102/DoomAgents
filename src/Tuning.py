@@ -4,7 +4,7 @@ import vizdoom
 from collections import deque
 from functools import partial
 from ray import tune
-
+from tqdm import trange
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -12,66 +12,40 @@ from src import Agent, DoomEnvironment
 
 
 #def tune_train(game, agent, episodes_per_epoch, config):
-def tune_train(config, episodes_per_epoch=1000, epoch_count=10):
-    #writer = SummaryWriter()
-    #agent.load_model()
-    agent = Agent.AgentDuelDQN(model_name='DDQN')
-    doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agent, hardcoded_path=True)
-    game = doomEnv.game
-    agent.set_model_configuration(config)
-    #print("Detect change")
 
-    tics_per_action = 6
-    #scores = deque([], maxlen=100)
-    #losses = deque([], maxlen=100)
+def start_tuning(tune_config, agent: Agent.AgentBase, episodes_per_epoch, episodes_per_test, epoch_count, doom_config, tics_per_action=12):
+
+    agent.set_up_game_environment(doom_config, hardcoded_path=True)
+    agent.load_model_config(tune_config=tune_config)
+
+    first_run = False
+
+    # Epoch runs a certain amount of episodes, followed a test run to show performance.
+    # At the end the model is saved on disk
     for epoch in range(epoch_count):
-        total_reward = 0
-        total_loss = 0
-        for e in range(episodes_per_epoch):
-            game.new_episode()
-            done = False
-            loss = 0
-            prev_frames = deque([None, None, None, None], maxlen=4)
+        print("epoch: ", epoch + 1)
+        mean_score = 0.0
+        mean_reward = 0.0
+        mean_loss = 0.0
+        mean_exploration = 0.0
 
-            while not done:
-                game_state = copy.deepcopy(game.get_state().screen_buffer)
-                frames = [game_state] + copy.deepcopy(list(prev_frames))
-                action = agent.get_action(frames)
-                reward = game.make_action(action)
+        for e in trange(episodes_per_epoch):
+            loss = agent.train_run(tics_per_action, first_run)
+            mean_loss += loss
 
-                done = game.is_episode_finished()
+        #agent.save_model()
 
-                for i in range(tics_per_action):
-                    if done:
-                        break
-                    game.advance_action()
-                    done = game.is_episode_finished()
+        for e in trange(episodes_per_test):
+            score = agent.test_run(tics_per_action)
+            mean_score += score
 
-                    if done:
-                        break
-
-                    game_state = copy.deepcopy(game.get_state().screen_buffer)
-                    prev_frames.append(game_state)
-                    done = game.is_episode_finished()
-
-                if not done:
-                    next_state = copy.deepcopy(game.get_state().screen_buffer)
-                else:
-                    next_state = None
-
-                next_state = [next_state] + copy.deepcopy(list(prev_frames))
-
-                total_loss += agent.train(frames, action, next_state, reward, done)
-
-            total_reward += game.get_total_reward()
-            agent.decay_exploration()
-
+        mean_score /= episodes_per_test
+        mean_loss /= episodes_per_epoch
+        first_run = False
         if epoch != 0:
-            mean_score = total_reward/episodes_per_epoch
-            mean_loss = total_loss/episodes_per_epoch
             tune.report(mean_score=mean_score, mean_loss=mean_loss, exploration=agent.exploration)
-            agent.update_target_model()
 
+"""
 def tune_learning_rate(episodes_per_epoch, num_samples=10, max_num_epochs=10):
     config = {
         "c1": 8,
@@ -102,18 +76,9 @@ def tune_learning_rate(episodes_per_epoch, num_samples=10, max_num_epochs=10):
         num_samples=num_samples,
         scheduler=scheduler,
         progress_reporter=reporter)
+"""
 
-
-
-def run_tuning(episodes_per_epoch, num_samples=10, max_num_epochs=10):
-    config = {
-        "c1": tune.sample_from(lambda _: 2 ** np.random.randint(3, 6)),
-        "c2": tune.sample_from(lambda _: 2 ** np.random.randint(3, 6)),
-        "c3": tune.sample_from(lambda _: 2 ** np.random.randint(3, 6)),
-        "c4": tune.sample_from(lambda _: 2 ** np.random.randint(3, 6)),
-        "momentum": 0.9,
-        "lr": tune.choice([1e-5])
-    }
+def run_tuning(agent, episodes_per_epoch, doom_config, tune_config, num_samples=10, max_num_epochs=10, episodes_per_test=10):
 
     scheduler = tune.schedulers.ASHAScheduler(
         metric="mean_score",
@@ -129,9 +94,10 @@ def run_tuning(episodes_per_epoch, num_samples=10, max_num_epochs=10):
 
     #partial(tune_train, game, agent, episodes_per_epoch),
     result = tune.run(
-        partial(tune_train, episodes_per_epoch=episodes_per_epoch, epoch_count=max_num_epochs),
+        partial(start_tuning, agent=agent, episodes_per_epoch=episodes_per_epoch, episodes_per_test=episodes_per_test,
+                epoch_count=max_num_epochs, doom_config=doom_config),
         resources_per_trial={"cpu": 8, "gpu": 1},
-        config=config,
+        config=tune_config,
         num_samples=num_samples,
         scheduler=scheduler,
         progress_reporter=reporter)
@@ -142,3 +108,4 @@ def run_tuning(episodes_per_epoch, num_samples=10, max_num_epochs=10):
     print("Best result final mean score: {}".format(best_result.last_result["mean_score"]))
 
     #print(result.best_config)
+
