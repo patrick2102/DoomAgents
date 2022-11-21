@@ -24,6 +24,7 @@ from sklearn import preprocessing
 class AgentBase:
     def __init__(self, learning_rate=1e-4, model_name='default_model'):
         self.actions = []
+        self.model_name = model_name
         self.model_path = 'models/'+model_name+'.pth'
         self.lr = learning_rate
         self.criterion = None
@@ -202,7 +203,8 @@ class AgentDQN(AgentBase):
         self.load_model()
 
         # Set up ray and training details
-        writer = SummaryWriter()
+        writer = SummaryWriter(comment=('_'+self.model_name))
+        writer.filename_suffix = self.model_name
         tics_per_action = 12
         first_run = False
         episodes_per_test = int(episodes_per_epoch/10)
@@ -346,7 +348,9 @@ class AgentDoubleDuelDQN(AgentDuelDQN):
         self.load_model()
 
         # Set up ray and training details
-        writer = SummaryWriter()
+        writer = SummaryWriter(comment=('_'+self.model_name))
+        #writer = SummaryWriter()
+        writer.filename_suffix = self.model_name
         tics_per_action = 12
         first_run = True
         episodes_per_test = int(episodes_per_epoch/10)

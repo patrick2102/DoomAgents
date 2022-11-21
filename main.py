@@ -137,11 +137,23 @@ def tune_dueldqn():
 #agentDQNHealth = Agent.AgentDQN(model_name='DQN_Health_Gather2')
 #agentDQNHealth.start_training("scenarios/health_gathering.cfg")
 
-agentDuelDQNHealth = Agent.AgentDuelDQN(model_name='DuelDQN_Health_Gather2')
-agentDuelDQNHealth.start_training("scenarios/health_gathering.cfg")
+#agentDuelDQNHealth = Agent.AgentDuelDQN(model_name='DuelDQN_Health_Gather2')
+#agentDuelDQNHealth.start_training("scenarios/health_gathering.cfg")
 
 #agentDoubleDuelDQN = Agent.AgentDoubleDuelDQN(model_name='DoubleDuelDQN2')
 #agentDoubleDuelDQN.start_training("scenarios/basic.cfg", epoch_count=100)
+
+
+#Health Gathering Supreme:
+
+agentDuelDQN_Health_Gathering_Supreme = Agent.AgentDuelDQN(model_name='DuelDQN_Health_Gathering_Supreme')
+agentDuelDQN_Health_Gathering_Supreme.start_training("scenarios/health_gathering_supreme.cfg",
+                                                     episodes_per_epoch=10, epoch_count=100)
+
+#agentDoubleDuelDQN_Health_Gathering_Supreme = Agent.AgentDoubleDuelDQN(model_name=
+#                                                                       'DoubleDuelDQN_Health_Gathering_Supreme')
+#agentDoubleDuelDQN_Health_Gathering_Supreme.start_training("scenarios/health_gathering_supreme.cfg",
+#                                                           episodes_per_epoch=10, epoch_count=100)
 
 #while True:
 #    continue
