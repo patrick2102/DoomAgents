@@ -354,7 +354,7 @@ class AgentDQN(AgentBase):
             print("epoch: ", epoch+1)
 
             for e in trange(episodes_per_epoch):
-                if fast_train
+                if fast_train:
                     loss = self.train_run_fast(tics_per_action, first_run)
                 else:
                     loss = self.train_run(tics_per_action, first_run)
