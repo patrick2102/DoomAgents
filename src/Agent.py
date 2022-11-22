@@ -7,6 +7,7 @@ import torch.optim as optim
 import itertools as it
 import torch.nn.functional as F
 import cv2 as cv2
+import vizdoom as vzd
 from vizdoom import *
 from collections import deque  # for memory
 import copy
@@ -25,9 +26,9 @@ class AgentBase:
         self.criterion = None
         self.model = None
         self.optimizer = None
-        self.exploration = 1.0
+        self.exploration = 0.5
         self.exploration_decay = 0.9995
-        self.min_exploration = 0.1
+        self.min_exploration = 0.05
         self.downscale = (30, 45)
 
     def set_model_path(self, model_name):
@@ -155,6 +156,7 @@ class AgentDQN(AgentBase):
     def save_model(self):
         torch.save(self.model.state_dict(), self.model_path)
         print("model saved")
+
 
     def start_training(self, config, epoch_count=10, episodes_per_epoch=100, hardcoded_path=False):
         # Set up game environment
@@ -299,6 +301,46 @@ class AgentDoubleDuelDQN(AgentDuelDQN):
 
     def update_target(self):
         self.target.load_state_dict(self.model.state_dict())
+
+    def run_test(self, config, hardcoded_path=False):
+        game = DoomGame()
+        if hardcoded_path:
+            config_path = "C:/Uni/3rd_Semester/DeepLearning/Project/DoomAgents/" + config
+        else:
+            config_path = config
+        game.load_config(config_path)
+        game.set_mode(vzd.Mode.ASYNC_PLAYER)
+        game.init()
+
+        # Set up model and possible actions
+        n = game.get_available_buttons_size()
+        self.actions = [list(a) for a in it.product([0, 1], repeat=n)]
+        self.load_model()
+
+        writer = SummaryWriter()
+        tics_per_action = 12
+        first_run = False
+        episodes_per_test = int(50)
+
+        # Test run with no exploration to demonstrate performance
+        for e in range(episodes_per_test):
+            game.new_episode()
+            done = False
+
+            while not done:
+                state = self.preprocess(game.get_state().screen_buffer)
+                action = self.get_action(state, explore=False)
+
+                game.set_action(action)
+
+                for i in range(tics_per_action):
+                    if done:
+                        break
+                    game.advance_action()
+                    done = game.is_episode_finished()
+
+            writer.add_scalar('Score', game.get_total_reward(),
+                              e * episodes_per_test)
 
     def start_training(self, config, epoch_count=10, episodes_per_epoch=100, hardcoded_path=False):
         # Set up game environment
