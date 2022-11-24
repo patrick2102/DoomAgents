@@ -170,7 +170,9 @@ def tune_agent(agent, doom_config):
 
 #while True:
 #    continue
-agentDuelDQN = Agent.AgentDuelDQN(model_name='DuelDQN_tune_basic')
+#agentDuelDQN = Agent.AgentDuelDQN(model_name='DuelDQN_basic')
 #agentDuelDQN.start_training("scenarios/simpler_basic.cfg")
+agentDQN = Agent.AgentDQN(model_name='DuelDQN_basic')
+agentDQN.start_training("scenarios/simpler_basic.cfg")
 
-tune_agent(agentDuelDQN, "scenarios/basic.cfg")
+#tune_agent(agentDuelDQN, "scenarios/basic.cfg")
