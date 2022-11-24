@@ -51,10 +51,11 @@ class AgentBase:
     def train(self, state, last_action, next_state, reward,  done=False):
         raise NotImplementedError
 
+    """
     def start_training(self, config, epoch_count=10, episodes_per_epoch=100, episodes_per_test=10, tics_per_action=12, hardcoded_path=False,
                        fast_train=False, tune_config=None):
         raise NotImplementedError
-
+    """
     def test_run(self, tics_per_action=12):
         raise NotImplementedError
 
@@ -371,9 +372,9 @@ class AgentDQN(AgentBase):
         n = self.game.get_available_buttons_size()
         self.actions = [list(a) for a in it.product([0, 1], repeat=n)]
 
+
     def start_training(self, config, epoch_count=10, episodes_per_epoch=100, episodes_per_test=10, tics_per_action=12, hardcoded_path=False,
                        fast_train=False, tune_config=None):
-
         if tics_per_action < self.frame_stack_size:
             print("tics per action can not be less than frames per step")
             return
@@ -386,7 +387,6 @@ class AgentDQN(AgentBase):
         else:
             self.load_model_config(tune_config)
 
-
         # Set up ray and training details
         writer = SummaryWriter(comment=('_'+self.model_name))
         writer.filename_suffix = self.model_name
@@ -396,10 +396,6 @@ class AgentDQN(AgentBase):
         # At the end the model is saved on disk
         for epoch in range(epoch_count):
             print("epoch: ", epoch+1)
-            mean_score = 0.0
-            mean_reward = 0.0
-            mean_loss = 0.0
-            mean_exploration = 0.0
 
             for e in trange(episodes_per_epoch):
                 if fast_train:
@@ -412,8 +408,6 @@ class AgentDQN(AgentBase):
                                   e + epoch * episodes_per_epoch)
                 writer.add_scalar('Exploration_epoch_size_' + str(episodes_per_epoch), self.exploration,
                                   e + epoch * episodes_per_epoch)
-                #mean_reward += game.get_total_reward()
-                mean_loss += loss
 
             self.save_model()
 
@@ -421,12 +415,8 @@ class AgentDQN(AgentBase):
                 self.test_run(tics_per_action)
                 writer.add_scalar('Score_epoch_size_' + str(episodes_per_epoch), game.get_total_reward(),
                                   e + epoch * episodes_per_test)
-                mean_score += mean_score
 
-            mean_score /= episodes_per_epoch
-            mean_loss /= episodes_per_epoch
             first_run = False
-            yield mean_score, mean_loss
 
 class AgentDuelDQN(AgentDQN):
     def __init__(self, memory_size=10000, model_name='default_DuelDQN_model', learning_rate=1e-4, batch_size=64):
@@ -499,3 +489,13 @@ class AgentDoubleDuelDQN(AgentDuelDQN):
         torch.save(self.model.state_dict(), self.model_path)
         self.target.load_state_dict(self.model.state_dict())
         print("model saved")
+
+"""
+class A2C(AgentBase):
+    def __init__(self, memory_size=10000, model_name='default_DoubleDuelDQN_model', learning_rate=1e-4, batch_size=64):
+        super().__init__(memory_size=memory_size, learning_rate=learning_rate, model_name=model_name, batch_size=batch_size)
+
+
+    def set_up_critic(self):
+
+"""
