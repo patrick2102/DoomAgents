@@ -110,7 +110,8 @@ def train_dqn():
     doomEnv.run_statistics(episodes_per_epoch=episodes_per_epoch, epoch_count=epochs)
 
 def tune_agent(agent, doom_config):
-    episodes_per_epoch = 10
+    episodes_per_epoch = 100
+    episodes_per_test = 100
     samples = 10
     epochs = 10
     tune_config = {
@@ -118,8 +119,8 @@ def tune_agent(agent, doom_config):
         "c2": tune.sample_from(lambda _: 2 ** np.random.randint(3, 6)),
         "c3": tune.sample_from(lambda _: 2 ** np.random.randint(3, 6)),
         "c4": tune.sample_from(lambda _: 2 ** np.random.randint(3, 6)),
-        "momentum": 0.9,
-        "lr": tune.choice([1e-5])
+        "momentum": 0.0,
+        "lr": tune.choice([1e-4])
     }
 
     #Tuning.run_tuning(episodes_per_epoch, samples, epochs)
@@ -169,7 +170,7 @@ def tune_agent(agent, doom_config):
 
 #while True:
 #    continue
-agentDuelDQN = Agent.AgentDuelDQN(model_name='tune')
+agentDuelDQN = Agent.AgentDuelDQN(model_name='DuelDQN_tune_basic')
 #agentDuelDQN.start_training("scenarios/simpler_basic.cfg")
 
-tune_agent(agentDuelDQN, "scenarios/simpler_basic.cfg")
+tune_agent(agentDuelDQN, "scenarios/basic.cfg")
