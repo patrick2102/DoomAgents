@@ -137,8 +137,8 @@ def tune_dueldqn():
 # agentDQNHealth = Agent.AgentDQN(model_name='DQN_Health_Gather')
 # agentDQNHealth.start_training("scenarios/health_gathering.cfg")
 def train():
-    agentDDDQNDefend = Agent.AgentDoubleDuelDQN(model_name="DDDQN_Deadly_corridor_v4_Health")
-    agentDDDQNDefend.start_training("Scenarios/deadly_corridor.cfg")
+    agentDDDQNDefend = Agent.AgentDoubleDuelDQN(model_name="DDDQN_Death_Match_01")
+    agentDDDQNDefend.start_training("Scenarios/death_match.cfg")
 
 
 def test():
