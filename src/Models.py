@@ -264,11 +264,13 @@ class DuelNetwork(Model):
 
 
 class DuelNetworkConfigurable(Model):
-    def __init__(self, x_size, y_size, action_space, stack_size, c1=16, c2=32, c3=32, c4=64):
+    def __init__(self, x_size, y_size, action_space, stack_size, c1=16, c2=32, c3=32, c4=64, p=0.2):
         super(DuelNetworkConfigurable, self).__init__()
 
         print("Running DuelNetworkConfigurable")
 
+        self.p = p
+        self.drop_out = nn.Dropout(p)
         rescale_factor = 1.0
         self.xs = int(x_size * rescale_factor)
         self.ys = int(y_size * rescale_factor)
@@ -337,12 +339,16 @@ class DuelNetworkConfigurable(Model):
         x = x.to(self.device)
 
         x = self.conv1(x)
+        x = self.drop_out(x)
 
         x = self.conv2(x)
+        x = self.drop_out(x)
 
         x = self.conv3(x)
+        x = self.drop_out(x)
 
         x = self.conv4(x)
+        x = self.drop_out(x)
 
         x = x.view(-1, self.img_size)
 
