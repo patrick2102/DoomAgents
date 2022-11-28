@@ -6,10 +6,10 @@ import torch.nn.functional as F
 from ray import tune
 import numpy as np
 
-#agent = Agent.AgentRandom()
-#doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agent)
+# agent = Agent.AgentRandom()
+# doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agent)
 
-#doomEnv.run(episode_count=10)
+# doomEnv.run(episode_count=10)
 """
 
 # DQN agent:
@@ -101,13 +101,15 @@ start_training_ddqn(1)
 resume_training_ddqn(1000)
 """
 
+
 def train_dqn():
     episodes_per_epoch = 1000
     epochs = 10
-    #agentDQN = Agent.AgentDQN(model_name='DQN_framestack')
+    # agentDQN = Agent.AgentDQN(model_name='DQN_framestack')
     agentDQN = Agent.AgentDuelDQN(model_name='DDQN_Opt5')
     doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/simpler_basic.cfg", agentDQN)
     doomEnv.run_statistics(episodes_per_epoch=episodes_per_epoch, epoch_count=epochs)
+
 
 def tune_agent(agent, doom_config):
     episodes_per_epoch = 100
@@ -123,56 +125,57 @@ def tune_agent(agent, doom_config):
         "lr": tune.choice([1e-4])
     }
 
-    #Tuning.run_tuning(episodes_per_epoch, samples, epochs)
-    Tuning.run_tuning(agent, episodes_per_epoch, doom_config, tune_config, num_samples=10, max_num_epochs=10, episodes_per_test=10)
-    #Tuning.tune_learning_rate(episodes_per_epoch, samples, epochs)
-
-#tune_dueldqn()
-
-#train_dqn()
-
-#newAgent = Agent.AgentNew(model_name='DoubleDuelDQN')
-#newAgent.start_training("scenarios/basic.cfg")
+    # Tuning.run_tuning(episodes_per_epoch, samples, epochs)
+    Tuning.run_tuning(agent, episodes_per_epoch, doom_config, tune_config, num_samples=10, max_num_epochs=10,
+                      episodes_per_test=10)
+    # Tuning.tune_learning_rate(episodes_per_epoch, samples, epochs)
 
 
-#agentDQN = Agent.AgentDQN(model_name='DDQN_test')
-#agentDQN.start_training("scenarios/simpler_basic.cfg")
-#agentDQN.start_training("scenarios/simpler_basic.cfg")
+# tune_dueldqn()
 
-#agentDuelDQN = Agent.AgentDuelDQN(model_name='test2S2')
-#agentDuelDQN.start_training("scenarios/simpler_basic.cfg")
+# train_dqn()
 
-#agentDoubleDuelDQN = Agent.AgentDoubleDuelDQN(model_name='testDDDQN')
-#agentDoubleDuelDQN.start_training("scenarios/basic.cfg", epoch_count=100, episodes_per_epoch=10)
-
-#agentDQNHealth = Agent.AgentDQN(model_name='DQN_Health_Gather2')
-#agentDQNHealth.start_training("scenarios/health_gathering.cfg")
-
-#agentDuelDQNHealth = Agent.AgentDuelDQN(model_name='DuelDQN_Health_Gather2')
-#agentDuelDQNHealth.start_training("scenarios/health_gathering.cfg")
-
-#agentDoubleDuelDQN = Agent.AgentDoubleDuelDQN(model_name='DoubleDuelDQN2')
-#agentDoubleDuelDQN.start_training("scenarios/basic.cfg", epoch_count=100)
+# newAgent = Agent.AgentNew(model_name='DoubleDuelDQN')
+# newAgent.start_training("scenarios/basic.cfg")
 
 
-#Health Gathering Supreme:
+# agentDQN = Agent.AgentDQN(model_name='DDQN_test')
+# agentDQN.start_training("scenarios/simpler_basic.cfg")
+# agentDQN.start_training("scenarios/simpler_basic.cfg")
 
-#agentDuelDQN_Health_Gathering_Supreme = Agent.AgentDuelDQN(model_name='DuelDQN_Health_Gathering_Supreme')
-#agentDuelDQN_Health_Gathering_Supreme.start_training("scenarios/health_gathering_supreme.cfg",
+# agentDuelDQN = Agent.AgentDuelDQN(model_name='test2S2')
+# agentDuelDQN.start_training("scenarios/simpler_basic.cfg")
+
+# agentDoubleDuelDQN = Agent.AgentDoubleDuelDQN(model_name='testDDDQN')
+# agentDoubleDuelDQN.start_training("scenarios/basic.cfg", epoch_count=100, episodes_per_epoch=10)
+
+# agentDQNHealth = Agent.AgentDQN(model_name='DQN_Health_Gather2')
+# agentDQNHealth.start_training("scenarios/health_gathering.cfg")
+
+# agentDuelDQNHealth = Agent.AgentDuelDQN(model_name='DuelDQN_Health_Gather2')
+# agentDuelDQNHealth.start_training("scenarios/health_gathering.cfg")
+
+# agentDoubleDuelDQN = Agent.AgentDoubleDuelDQN(model_name='DoubleDuelDQN2')
+# agentDoubleDuelDQN.start_training("scenarios/basic.cfg", epoch_count=100)
+
+
+# Health Gathering Supreme:
+
+# agentDuelDQN_Health_Gathering_Supreme = Agent.AgentDuelDQN(model_name='DuelDQN_Health_Gathering_Supreme')
+# agentDuelDQN_Health_Gathering_Supreme.start_training("scenarios/health_gathering_supreme.cfg",
 #                                                     episodes_per_epoch=10, epoch_count=100)
 
-#agentDoubleDuelDQN_Health_Gathering_Supreme = Agent.AgentDoubleDuelDQN(model_name=
+# agentDoubleDuelDQN_Health_Gathering_Supreme = Agent.AgentDoubleDuelDQN(model_name=
 #                                                                       'DoubleDuelDQN_Health_Gathering_Supreme')
-#agentDoubleDuelDQN_Health_Gathering_Supreme.start_training("scenarios/health_gathering_supreme.cfg",
+# agentDoubleDuelDQN_Health_Gathering_Supreme.start_training("scenarios/health_gathering_supreme.cfg",
 #                                                           episodes_per_epoch=10, epoch_count=100)
 
 
-
-#while True:
+# while True:
 #    continue
-#agentDuelDQN = Agent.AgentDuelDQN(model_name='DuelDQN_basic')
-#agentDuelDQN.start_training("scenarios/simpler_basic.cfg")
-agentDQN = Agent.AgentDQN(model_name='DuelDQN_basic')
-agentDQN.start_training("scenarios/simpler_basic.cfg")
+# agentDuelDQN = Agent.AgentDuelDQN(model_name='DuelDQN_basic')
+# agentDuelDQN.start_training("scenarios/simpler_basic.cfg")
+agentDQN = Agent.AgentDoubleDuelDQN(model_name='DoubleDuelDQN_deathmatch_01')
+agentDQN.start_training("scenarios/death_match.cfg")
 
-#tune_agent(agentDuelDQN, "scenarios/basic.cfg")
+# tune_agent(agentDuelDQN, "scenarios/basic.cfg")
