@@ -493,7 +493,6 @@ class A2C(AgentBase):
         return action
 
     def replay(self, batch_size):
-        #self.normalize_rewards()
         minibatch = random.sample(self.memory, batch_size)
         self.optimizer.zero_grad()
 
@@ -510,7 +509,7 @@ class A2C(AgentBase):
         row = np.arange(self.batch_size)
 
         a = row, actions
-        v, policy_dist_state = self.model.forward(states)
+        v, pd = self.model.forward(states)
         with torch.no_grad():
             ns_v, _ = self.model.forward(next_states)
 
@@ -521,43 +520,23 @@ class A2C(AgentBase):
 
         advantage = q - v
 
-        dist = policy_dist_state.squeeze(0)[a]
-        #dist = torch.Normal(dist)
+        pd = pd.squeeze(0)
 
-        critic_loss = advantage.pow(2)
+        pd = pd[a]
 
-        actor_loss = -torch.log(dist)
-        actor_loss *= advantage
-        actor_loss = actor_loss
+        pd = torch.log(pd)
 
-        loss = 0.5*(actor_loss + critic_loss).pow(2).mean()
+        actor_loss = -pd*advantage
+        critic_loss = advantage**2
+
+        #loss = torch.sqrt((actor_loss + critic_loss)**2)
+        loss = torch.abs((actor_loss + critic_loss).mean())
+
+        #loss = self.criterion(actor_loss, critic_loss)
 
         loss.backward()
-
-
-        #log_prop = torch.log(dist)
-
-        #dist = dist.detach().cpu().numpy()
-
-        #entropy = -np.sum(np.mean(dist) * np.log(dist))
-
-        #entropy = -np.sum(np.mean(policy_dist_state) * np.log(policy_dist_state))
-
-        #actor_loss = (-log_prop * advantage).mean()
-
-        #critic_loss = 0.5 * advantage.pow(2).mean()
-
-        #actor_loss = (-log_prop * advantage).mean()
-        #critic_loss = 0.5 * advantage.pow(2).mean()
-        #critic_loss = nn.MSELoss(advantage)
-        #actor_loss = -log_prop.mean() * critic_loss
-        #actor_loss = actor_loss.mean()
-
-        #loss = actor_loss * critic_loss
-
-        #loss = actor_loss + critic_loss + 0.001 * entropy
-
-        #loss.backward()
+        #actor_loss.backward()
+        #critic_loss.backward()
 
         self.optimizer.step()
         return loss.item()
@@ -577,7 +556,8 @@ class A2C(AgentBase):
         return 0
 
     def get_model(self):
-        return Models.ActorCritic(self.downscale[0], self.downscale[1], len(self.actions), stack_size=self.frame_stack_size)
+        return Models.ActorCritic(self.downscale[0], self.downscale[1], len(self.actions),
+                                  stack_size=self.frame_stack_size)
 
     def load_model(self):
         self.device = "cpu"
@@ -647,4 +627,82 @@ class A2C(AgentBase):
             first_run = False
 
 
+class A2CPPO(A2C):
+    def __init__(self, memory_size=10000, model_name='default_A2C_model', learning_rate=1e-4, batch_size=64):
+        super().__init__(learning_rate=learning_rate, model_name=model_name)
+        self.old_pd = None
 
+    def remember(self, state, action, reward, next_state, done):
+        action = self.actions.index(action)
+        reward /= 10.0
+        with torch.no_grad():
+            s = copy.copy(state)
+            s = np.expand_dims(s, axis=0)
+            s = torch.from_numpy(s).float().cpu()
+            _, old_pd = self.model.forward(s)
+            old_pd = np.squeeze(old_pd)
+            old_pd = old_pd[action]
+            old_pd = old_pd.cpu().numpy()
+        # state, action, reward, next state, done, old_policy
+        self.memory.append([state, action, reward, next_state, done, old_pd])
+
+    def replay(self, batch_size):
+        minibatch = random.sample(self.memory, batch_size)
+        self.optimizer.zero_grad()
+
+        minibatch = np.array(minibatch.copy(), dtype=object)
+
+        states = torch.from_numpy(np.stack(minibatch[:, 0]).astype(np.double)).float().to(self.device)
+        actions = torch.from_numpy(np.array(minibatch[:, 1]).astype(np.int64)).long().to(self.device)
+        rewards = torch.from_numpy(np.array(minibatch[:, 2]).astype(float)).float().to(self.device)
+        next_states = torch.from_numpy(np.stack(minibatch[:, 3]).astype(np.double)).float().to(self.device)
+        dones = torch.from_numpy(np.array(minibatch[:, 4]).astype(bool)).to(self.device)
+        old_pds = torch.from_numpy(np.array(minibatch[:, 5]).astype(float)).float().to(self.device)
+        not_dones = ~dones
+        not_dones = not_dones.int()
+
+        row = np.arange(self.batch_size)
+
+        a = row, actions
+        v, pd = self.model.forward(states)
+        with torch.no_grad():
+            ns_v, _ = self.model.forward(next_states)
+
+        ns_v = np.squeeze(ns_v)
+        v = np.squeeze(v)
+
+        q = rewards + 0.99 * ns_v * not_dones
+
+        advantage = q - v
+
+        pd = pd.squeeze(0)
+
+        pd = pd[a]
+
+        pd_log = torch.log(pd)
+
+        actor_loss = -pd_log*advantage
+        critic_loss = advantage**2
+
+        #loss = torch.abs((actor_loss + critic_loss).mean())
+
+        c1 = 0.0001
+        c2 = 0.0001
+
+        ratios = pd / old_pds
+
+        eps = 0.2
+
+        surr1 = ratios * advantage
+        surr2 = torch.clamp(ratios, 1-eps, 1+eps) * advantage
+
+        surr = -torch.min(surr1, surr2)
+
+        loss = surr - c1*(ns_v - v)**2 + c2 * (-torch.sum(pd*pd_log))
+        loss = torch.abs(loss.mean())
+
+        loss.backward()
+
+        self.optimizer.step()
+
+        return loss.item()

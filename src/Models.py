@@ -91,6 +91,7 @@ class DQNModel(Model):
         x = self.conv4(x)
         x = x.view(-1, self.img_size)
         x = self.dense(x)
+        x = F.softmax(x, dim=1)
         return x
 
     def predict(self, x):
@@ -154,6 +155,7 @@ class ConvLinearNNMult(Model):
 
         x = self.dense1(x)
         x = self.dense2(x)
+        x = F.softmax(x, dim=1)
 
         return x
 
@@ -252,6 +254,7 @@ class DuelNetwork(Model):
 
         state_value = self.state_value(x1).reshape(-1,1)
         advantage_value = self.advantage_value(x2)
+        advantage_value = F.softmax(advantage_value, dim=1)
 
         q = state_value + (advantage_value - advantage_value.mean(dim=1).reshape(-1, 1))
 
@@ -457,11 +460,11 @@ class ActorCritic(Model):
 
         x = x.view(-1, self.img_size)
 
-        value = self.critic(x)
-        policy_dist = self.actor(x)
-        policy_dist = F.softmax(policy_dist, dim=1)
+        critic_value = self.critic(x)
+        actor_policy = self.actor(x)
+        actor_policy = F.softmax(actor_policy, dim=1)
 
-        return value, policy_dist
+        return critic_value, actor_policy
 
     def predict(self, x):
         _, x = self.forward(x)

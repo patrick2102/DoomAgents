@@ -175,9 +175,11 @@ def tune_agent(agent, doom_config):
 #agentDQN = Agent.AgentDQN(model_name='DuelDQN_basic')
 #agentDQN.start_training("scenarios/simpler_basic.cfg")
 
+#agentA2C = Agent.A2C(model_name='A2C_Test2')
+#agentA2C.start_training("scenarios/simpler_basic.cfg")
 
-agentA2C = Agent.A2C(model_name='A2C_Test')
-agentA2C.start_training("scenarios/simpler_basic.cfg")
+agentA2CPPO = Agent.A2CPPO(model_name='A2CPPO_Test')
+agentA2CPPO.start_training("scenarios/simpler_basic.cfg")
 
 #agentDQN = Agent.AgentDQN()
 
