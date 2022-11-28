@@ -1,3 +1,4 @@
+import os
 import random
 import numpy as np
 import skimage
@@ -20,12 +21,11 @@ from skimage.viewer import ImageViewer
 from sklearn import preprocessing
 
 
-
 class AgentBase:
     def __init__(self, learning_rate=1e-4, model_name='default_model'):
         self.actions = []
         self.model_name = model_name
-        self.model_path = 'models/'+model_name+'.pth'
+        self.model_path = 'models/' + model_name + '.pth'
         self.lr = learning_rate
         self.criterion = None
         self.model = None
@@ -37,7 +37,7 @@ class AgentBase:
         self.game = None
 
     def set_model_path(self, model_name):
-        self.model_path = 'models/'+model_name+'.pth'
+        self.model_path = 'models/' + model_name + '.pth'
 
     def preprocess(self, state):
         raise NotImplementedError
@@ -48,7 +48,7 @@ class AgentBase:
     def get_action(self, state):
         raise NotImplementedError
 
-    def train(self, state, last_action, next_state, reward,  done=False):
+    def train(self, state, last_action, next_state, reward, done=False):
         raise NotImplementedError
 
     """
@@ -56,6 +56,7 @@ class AgentBase:
                        fast_train=False, tune_config=None):
         raise NotImplementedError
     """
+
     def test_run(self, tics_per_action=12):
         raise NotImplementedError
 
@@ -77,9 +78,11 @@ class AgentBase:
             if self.exploration < self.min_exploration:
                 self.exploration = self.min_exploration
 
+
 class AgentRandom(AgentBase):
     def get_action(self, state: GameState):
         return random.choice(self.actions)
+
 
 class AgentDQN(AgentBase):
     def __init__(self, memory_size=10000, model_name='default_DQN_model', learning_rate=1e-4, batch_size=64,
@@ -93,30 +96,30 @@ class AgentDQN(AgentBase):
 
     def preprocess(self, state):
         s = state
-        #s = np.moveaxis(s, 0, 2)
+        # s = np.moveaxis(s, 0, 2)
 
         s = cv2.resize(s, self.downscale, interpolation=cv2.INTER_AREA)
-        #s = cv2.cvtColor(s, cv2.COLOR_RGB2GRAY)
+        # s = cv2.cvtColor(s, cv2.COLOR_RGB2GRAY)
 
         s = np.moveaxis(s, 1, 0)
-        #s = cv2.imshow("img", s)
-        #cv2.waitKey(0)
-        #cv2.destroyAllWindows()
+        # s = cv2.imshow("img", s)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
-        s = np.array(s, dtype=float)/255
+        s = np.array(s, dtype=float) / 255
 
-        #s = np.mean(s, axis=0)
-        #s = np.mean(s, axis=0)
+        # s = np.mean(s, axis=0)
+        # s = np.mean(s, axis=0)
 
-        #s = np.vstack((np.ones, s))
-        #s = np.expand_dims(s, axis=0)
-        #s = np.array(s)
+        # s = np.vstack((np.ones, s))
+        # s = np.expand_dims(s, axis=0)
+        # s = np.array(s)
 
         return s
 
     def get_action(self, state, explore=True):
         if random.random() < self.exploration and explore:
-            action_index = random.randint(0, len(self.actions)-1)
+            action_index = random.randint(0, len(self.actions) - 1)
             action = self.actions[action_index]
         else:
             state = np.expand_dims(state, axis=0)
@@ -142,7 +145,7 @@ class AgentDQN(AgentBase):
         return 0
 
     def replay(self, batch_size):
-        #self.normalize_rewards()
+        # self.normalize_rewards()
         minibatch = random.sample(self.memory, batch_size)
         self.optimizer.zero_grad()
 
@@ -160,7 +163,7 @@ class AgentDQN(AgentBase):
 
         with torch.no_grad():
             nsi = row, torch.argmax(self.model.forward(next_states), dim=1)  # nsi = next state indices
-            next_state_values = self.model.forward(next_states)[nsi] #
+            next_state_values = self.model.forward(next_states)[nsi]  #
 
         v = rewards + 0.99 * next_state_values * not_dones
 
@@ -182,7 +185,7 @@ class AgentDQN(AgentBase):
 
         self.criterion = nn.MSELoss()
         self.model = Models.DuelNetworkConfigurable(self.downscale[0], self.downscale[1],
-                                                    len(self.actions),  self.frame_stack_size,
+                                                    len(self.actions), self.frame_stack_size,
                                                     c1=tune_config["c1"], c2=tune_config["c2"],
                                                     c3=tune_config["c3"], c4=tune_config["c4"])
 
@@ -199,7 +202,8 @@ class AgentDQN(AgentBase):
         print("model loaded")
 
     def get_model(self):
-        return Models.DQNModel(self.downscale[0], self.downscale[1], len(self.actions), stack_size=self.frame_stack_size)
+        return Models.DQNModel(self.downscale[0], self.downscale[1], len(self.actions),
+                               stack_size=self.frame_stack_size)
 
     def load_model(self):
         self.device = "cpu"
@@ -229,6 +233,7 @@ class AgentDQN(AgentBase):
     """
         Train run fast does not support multiple images
     """
+
     def train_run_fast(self, tics_per_action, first_run):
         game = self.game
         # Training loop where learning happens
@@ -238,6 +243,9 @@ class AgentDQN(AgentBase):
         steps = 0
 
         while not done:
+            # if game.is_player_dead():
+            #    game.respawn_player()
+
             steps += 1
             frame = self.preprocess(game.get_state().screen_buffer)
             # Quick and dirty solution that makes train_run_fast work without replacing the model.
@@ -268,6 +276,7 @@ class AgentDQN(AgentBase):
     """
         Train model
     """
+
     def train_run(self, tics_per_action, first_run):
         game = self.game
         game.new_episode()
@@ -313,6 +322,7 @@ class AgentDQN(AgentBase):
     """
         Run without exploration to measure performance
     """
+
     def test_run(self, tics_per_action):
         game = self.game
         game.new_episode()
@@ -342,6 +352,7 @@ class AgentDQN(AgentBase):
     """
         Run without multiple images and exploration
     """
+
     def test_run_fast(self, tics_per_action):
         game = self.game
         game.new_episode()
@@ -372,8 +383,8 @@ class AgentDQN(AgentBase):
         n = self.game.get_available_buttons_size()
         self.actions = [list(a) for a in it.product([0, 1], repeat=n)]
 
-
-    def start_training(self, config, epoch_count=10, episodes_per_epoch=100, episodes_per_test=10, tics_per_action=12, hardcoded_path=False,
+    def start_training(self, config, epoch_count=10, episodes_per_epoch=100, episodes_per_test=10, tics_per_action=12,
+                       hardcoded_path=False,
                        fast_train=False, tune_config=None):
         if tics_per_action < self.frame_stack_size:
             print("tics per action can not be less than frames per step")
@@ -388,14 +399,14 @@ class AgentDQN(AgentBase):
             self.load_model_config(tune_config)
 
         # Set up ray and training details
-        writer = SummaryWriter(comment=('_'+self.model_name))
+        writer = SummaryWriter(comment=('_' + self.model_name))
         writer.filename_suffix = self.model_name
         first_run = False
 
         # Epoch runs a certain amount of episodes, followed a test run to show performance.
         # At the end the model is saved on disk
         for epoch in range(epoch_count):
-            print("epoch: ", epoch+1)
+            print("epoch: ", epoch + 1)
 
             for e in trange(episodes_per_epoch):
                 if fast_train:
@@ -418,16 +429,77 @@ class AgentDQN(AgentBase):
 
             first_run = False
 
+    def start_multiplayer(self, config, epoch_count=10, episodes_per_epoch=100, episodes_per_test=10,
+                          tics_per_action=12,
+                          hardcoded_path=False,
+                          fast_train=True, tune_config=None):
+
+        if tics_per_action < self.frame_stack_size:
+            print("tics per action can not be less than frames per step")
+            return
+
+        # Set up game environment and action
+        self.game = DoomGame()
+        game = self.game
+        game.load_config("Scenarios/multi_duel.cfg")
+        game.add_game_args("-host 2 -deathmatch +timelimit 1 +sv_spawnfarthest 1 ")
+        game.add_game_args("+name Player1 +colorset 0")
+
+        game.init()
+
+        n = self.game.get_available_buttons_size()
+        self.actions = [list(a) for a in it.product([0, 1], repeat=n)]
+        if tune_config == None:
+            self.load_model()
+        else:
+            self.load_model_config(tune_config)
+
+        # Set up ray and training details
+        writer = SummaryWriter(comment=('_' + self.model_name))
+        writer.filename_suffix = self.model_name
+        first_run = False
+
+        # Epoch runs a certain amount of episodes, followed a test run to show performance.
+        # At the end the model is saved on disk
+        for epoch in range(epoch_count):
+            print("epoch: ", epoch + 1)
+
+            for e in trange(episodes_per_epoch):
+                if fast_train:
+                    loss = self.train_run_fast(tics_per_action, first_run)
+                else:
+                    loss = self.train_run(tics_per_action, first_run)
+
+                writer.add_scalar('Loss_epoch_size_' + str(episodes_per_epoch), loss, e + epoch * episodes_per_epoch)
+                writer.add_scalar('Reward_epoch_size_' + str(episodes_per_epoch), game.get_total_reward(),
+                                  e + epoch * episodes_per_epoch)
+                writer.add_scalar('Exploration_epoch_size_' + str(episodes_per_epoch), self.exploration,
+                                  e + epoch * episodes_per_epoch)
+
+            self.save_model()
+
+            for e in trange(episodes_per_test):
+                self.test_run(tics_per_action)
+                writer.add_scalar('Score_epoch_size_' + str(episodes_per_epoch), game.get_total_reward(),
+                                  e + epoch * episodes_per_test)
+
+            first_run = False
+
+
 class AgentDuelDQN(AgentDQN):
     def __init__(self, memory_size=10000, model_name='default_DuelDQN_model', learning_rate=1e-4, batch_size=64):
-        super().__init__(memory_size=memory_size, learning_rate=learning_rate, model_name=model_name, batch_size=batch_size)
+        super().__init__(memory_size=memory_size, learning_rate=learning_rate, model_name=model_name,
+                         batch_size=batch_size)
 
     def get_model(self):
-        return Models.DuelNetworkConfigurable(self.downscale[0], self.downscale[1], len(self.actions), self.frame_stack_size)
+        return Models.DuelNetworkConfigurable(self.downscale[0], self.downscale[1], len(self.actions),
+                                              self.frame_stack_size)
+
 
 class AgentDoubleDuelDQN(AgentDuelDQN):
     def __init__(self, memory_size=10000, model_name='default_DoubleDuelDQN_model', learning_rate=1e-4, batch_size=64):
-        super().__init__(memory_size=memory_size, learning_rate=learning_rate, model_name=model_name, batch_size=batch_size)
+        super().__init__(memory_size=memory_size, learning_rate=learning_rate, model_name=model_name,
+                         batch_size=batch_size)
 
     def load_model(self):
         self.device = "cpu"
@@ -470,9 +542,10 @@ class AgentDoubleDuelDQN(AgentDuelDQN):
 
         row = np.arange(self.batch_size)
 
+        #print(next_states)
         with torch.no_grad():
             nsi = row, torch.argmax(self.model.forward(next_states), dim=1)  # nsi = next state indices
-            next_state_values = self.target.forward(next_states)[nsi] #
+            next_state_values = self.target.forward(next_states)[nsi]  #
 
         v = rewards + 0.99 * next_state_values * not_dones
 
@@ -489,6 +562,7 @@ class AgentDoubleDuelDQN(AgentDuelDQN):
         torch.save(self.model.state_dict(), self.model_path)
         self.target.load_state_dict(self.model.state_dict())
         print("model saved")
+
 
 """
 class A2C(AgentBase):
