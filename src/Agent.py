@@ -30,7 +30,7 @@ class AgentBase:
         self.criterion = None
         self.model = None
         self.optimizer = None
-        self.exploration = 1.0
+        self.exploration = 0.1
         self.exploration_decay = 0.9995
         self.min_exploration = 0.1
         self.downscale = (30, 45)
@@ -642,6 +642,7 @@ class A2CPPO(A2C):
             _, old_pd = self.model.forward(s)
             old_pd = np.squeeze(old_pd)
             old_pd = old_pd[action]
+            #old_pd = float(old_pd.cpu().numpy())
             old_pd = old_pd.cpu().numpy()
         # state, action, reward, next state, done, old_policy
         self.memory.append([state, action, reward, next_state, done, old_pd])
@@ -650,7 +651,10 @@ class A2CPPO(A2C):
         minibatch = random.sample(self.memory, batch_size)
         self.optimizer.zero_grad()
 
-        minibatch = np.array(minibatch.copy(), dtype=object)
+        #og_minibatch = minibatch
+        #minibatch = np.array(minibatch.copy(), dtype=object)
+        minibatch_og = minibatch
+        minibatch = np.array(minibatch, dtype=object)
 
         states = torch.from_numpy(np.stack(minibatch[:, 0]).astype(np.double)).float().to(self.device)
         actions = torch.from_numpy(np.array(minibatch[:, 1]).astype(np.int64)).long().to(self.device)
@@ -675,21 +679,21 @@ class A2CPPO(A2C):
 
         advantage = q - v
 
-        pd = pd.squeeze(0)
+        pd_logs = torch.log(pd)
+        with torch.no_grad():
+            entropy = pd * pd_logs
+            entropy = torch.sum(entropy, dim=1)
+            pd = pd.squeeze(0)
 
-        pd = pd[a]
-
-        pd_log = torch.log(pd)
-
-        actor_loss = -pd_log*advantage
+        actor_loss = -pd_logs[a]*advantage
         critic_loss = advantage**2
 
         #loss = torch.abs((actor_loss + critic_loss).mean())
 
-        c1 = 0.0001
-        c2 = 0.0001
+        c1 = 0.5
+        c2 = 0.01
 
-        ratios = pd / old_pds
+        ratios = pd[a] / old_pds
 
         eps = 0.2
 
@@ -698,11 +702,26 @@ class A2CPPO(A2C):
 
         surr = -torch.min(surr1, surr2)
 
-        loss = surr - c1*(ns_v - v)**2 + c2 * (-torch.sum(pd*pd_log))
+        #loss = surr + c1*(ns_v - v)**2 + c2 * (-torch.sum(pd*pd_log))
+        loss = c1 * (actor_loss + critic_loss)
+        loss += c2 * entropy
+        #loss = surr + c1*(actor_loss+critic_loss) + c2 * (-torch.sum(pd*pd_log))
+        #loss = torch.abs(loss.mean())
         loss = torch.abs(loss.mean())
 
         loss.backward()
 
         self.optimizer.step()
+
+        #old_pds = pd.cpu().detach().numpy()
+
+        #old_pds = pd
+
+        #minibatch[:, 5] = pd1
+        #minibatch_og[:, 5] = pd1
+
+        # Temp solution, should be calculated using vectors instead
+        for i in range(self.batch_size):
+            minibatch_og[i][5] = float(pd[i][a])
 
         return loss.item()
