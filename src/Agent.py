@@ -631,6 +631,8 @@ class A2CPPO(A2C):
     def __init__(self, memory_size=10000, model_name='default_A2C_model', learning_rate=1e-4, batch_size=64):
         super().__init__(learning_rate=learning_rate, model_name=model_name)
         self.old_pd = None
+        self.max_al = 0.0
+        self.max_cl = 0.0
 
     def remember(self, state, action, reward, next_state, done):
         action = self.actions.index(action)
@@ -639,11 +641,13 @@ class A2CPPO(A2C):
             s = copy.copy(state)
             s = np.expand_dims(s, axis=0)
             s = torch.from_numpy(s).float().cpu()
-            _, old_pd = self.model.forward(s)
+            v, old_pd = self.model.forward(s)
             old_pd = np.squeeze(old_pd)
             old_pd = old_pd[action]
             #old_pd = float(old_pd.cpu().numpy())
             old_pd = old_pd.cpu().numpy()
+
+            #advantage =
         # state, action, reward, next state, done, old_policy
         self.memory.append([state, action, reward, next_state, done, old_pd])
 
@@ -651,8 +655,6 @@ class A2CPPO(A2C):
         minibatch = random.sample(self.memory, batch_size)
         self.optimizer.zero_grad()
 
-        #og_minibatch = minibatch
-        #minibatch = np.array(minibatch.copy(), dtype=object)
         minibatch_og = minibatch
         minibatch = np.array(minibatch, dtype=object)
 
@@ -682,38 +684,58 @@ class A2CPPO(A2C):
         pd_logs = torch.log(pd)
         with torch.no_grad():
             entropy = pd * pd_logs
-            entropy = torch.sum(entropy, dim=1)
+            entropy = -torch.sum(entropy, dim=1)
             pd = pd.squeeze(0)
 
-        actor_loss = -pd_logs[a]*advantage
-        critic_loss = advantage**2
+
 
         #loss = torch.abs((actor_loss + critic_loss).mean())
 
-        c1 = 0.5
+        c1 = 1.0
         c2 = 0.01
 
-        ratios = pd[a] / old_pds
+        old_pd_logs = torch.log(old_pds)
+
+        #ratios = torch.exp((pd_logs[a]+1e-10)-(old_pd_logs+1e-10))
+        ratios = pd[a]/old_pd_logs
 
         eps = 0.2
 
-        surr1 = ratios * advantage
-        #surr2 = torch.clamp(ratios, 1-eps, 1+eps) * advantage
+        s1 = ratios * advantage
 
         # https://spinningup.openai.com/en/latest/algorithms/ppo.html
-        b = torch.clamp(advantage, 0, 1)
-        torch.ceil(b)
-        b = b - (1-b)
-        surr2 = (1+(eps*b))*advantage
 
-        surr = torch.min(surr1, surr2)
+        b = torch.clamp(ratios, 1-eps, 1+eps) * advantage
+        s2 = b
+
+        #b = torch.clamp(advantage, 0, 1)
+        #torch.ceil(b)
+        #b = b - (1-b)
+        #s2 = (1+(eps*b))*advantage
+
+        actor_loss = -torch.mean(torch.min(s1, s2))
+
+        critic_loss = torch.mean((rewards-v)**2)
+
+        if self.max_cl < float(critic_loss):
+            self.max_cl = float(critic_loss)
+            print("max critic loss: ", float(critic_loss))
+
+        if self.max_al < float(actor_loss):
+            self.max_al = float(actor_loss)
+            print("s1: ", s1)
+            print("s2: ", s2)
+            print("max actor  loss: ", float(actor_loss))
+
+        loss = c1 * (actor_loss + critic_loss) #+ c2 * entropy
 
         #loss = surr + c1*(ns_v - v)**2 + c2 * (-torch.sum(pd*pd_log))
-        loss = c1 * (actor_loss + critic_loss)
-        loss += c2 * entropy
+        #loss = c1 * (actor_loss + critic_loss)
+        #loss += c2 * entropy
         #loss = surr + c1*(actor_loss+critic_loss) + c2 * (-torch.sum(pd*pd_log))
         #loss = torch.abs(loss.mean())
-        loss = torch.abs(loss.mean())
+        #loss = loss.mean()
+        #loss = torch.abs(loss.mean())
 
         loss.backward()
 
