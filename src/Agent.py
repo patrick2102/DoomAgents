@@ -476,7 +476,7 @@ class A2C(AgentBase):
         self.N = memory_size
         self.memory = None
         self.norm_rewards = None
-        self.batch_size = batch_size
+        self.batch_size = 64
         self.frame_stack_size = 4
 
     def get_action(self, state, explore=True):
@@ -698,9 +698,15 @@ class A2CPPO(A2C):
         eps = 0.2
 
         surr1 = ratios * advantage
-        surr2 = torch.clamp(ratios, 1-eps, 1+eps) * advantage
+        #surr2 = torch.clamp(ratios, 1-eps, 1+eps) * advantage
 
-        surr = -torch.min(surr1, surr2)
+        # https://spinningup.openai.com/en/latest/algorithms/ppo.html
+        b = torch.clamp(advantage, 0, 1)
+        torch.ceil(b)
+        b = b - (1-b)
+        surr2 = (1+(eps*b))*advantage
+
+        surr = torch.min(surr1, surr2)
 
         #loss = surr + c1*(ns_v - v)**2 + c2 * (-torch.sum(pd*pd_log))
         loss = c1 * (actor_loss + critic_loss)
@@ -721,7 +727,9 @@ class A2CPPO(A2C):
         #minibatch_og[:, 5] = pd1
 
         # Temp solution, should be calculated using vectors instead
+        pd = pd[a]
+
         for i in range(self.batch_size):
-            minibatch_og[i][5] = float(pd[i][a])
+            minibatch_og[i][5] = float(pd[i])
 
         return loss.item()
