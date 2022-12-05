@@ -179,8 +179,7 @@ def tune_agent(agent, doom_config):
 #    continue
 # agentDuelDQN = Agent.AgentDuelDQN(model_name='DuelDQN_basic')
 # agentDuelDQN.start_training("scenarios/simpler_basic.cfg")
-agentDQN = Agent.AgentDoubleDuelDQN(model_name='DuelDQN_corridor_test_04')
+agentDQN = Agent.AgentDuelDQN(model_name='DuelDQN_corridor_test_new_reward_02')
 agentDQN.start_training("scenarios/deadly_corridor.cfg")
-
 
 # tune_agent(agentDuelDQN, "scenarios/basic.cfg")

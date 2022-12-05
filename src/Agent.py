@@ -311,6 +311,7 @@ class AgentDQN(AgentBase):
             for i in range(tics_per_action):
                 game.advance_action()
                 reward += game.get_last_reward()
+                #print(reward)
                 done = game.is_episode_finished()
                 if done:
                     frame = np.zeros(self.downscale).astype(np.float32)
@@ -320,6 +321,7 @@ class AgentDQN(AgentBase):
                     frame = self.preprocess(game.get_state().screen_buffer)
                     prev_frames.append(frame)
 
+            #print(reward)
             next_state = np.array(prev_frames)
 
             loss += self.train(state, action, next_state, reward, done)
