@@ -1,8 +1,7 @@
-from src import DoomEnvironment, Agent, Models, EvolutionaryAgents, Tuning
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
+from src import DoomEnvironment, Tuning
+from src.Agents import Agent, AgentsDQN, AgentsA2C
+
+
 from ray import tune
 import numpy as np
 
@@ -178,8 +177,15 @@ def tune_agent(agent, doom_config):
 #agentA2C = Agent.A2C(model_name='A2C_Test2')
 #agentA2C.start_training("scenarios/simpler_basic.cfg")
 
-agentA2CPPO = Agent.A2CPPO(model_name='A2CPPO_Test')
-agentA2CPPO.start_training("scenarios/simpler_basic.cfg")
+#agentDQN = AgentsDQN.AgentDQN(model_name='DQN_Test')
+#agentDQN.start_training("scenarios/deadly_corridor.cfg")
+#agentDQN.start_training("scenarios/simpler_basic.cfg")
+
+agentDuelDQN = AgentsDQN.AgentDuelDQN(model_name='DDQN_Test')
+agentDuelDQN.start_training("scenarios/simpler_basic.cfg")
+
+#agentA2CPPO = A2C_Agents.A2CPPO(model_name='A2CPPO_Test')
+#agentA2CPPO.start_training("scenarios/simpler_basic.cfg")
 
 #agentDQN = Agent.AgentDQN()
 

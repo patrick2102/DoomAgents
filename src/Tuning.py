@@ -1,14 +1,8 @@
-import copy
-import numpy as np
-import vizdoom
-from collections import deque
 from functools import partial
 from ray import tune
 from tqdm import trange
 
-from torch.utils.tensorboard import SummaryWriter
-
-from src import Agent, DoomEnvironment
+from src.Agents import Agent
 
 
 #def tune_train(game, agent, episodes_per_epoch, config):
