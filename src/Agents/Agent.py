@@ -63,6 +63,26 @@ class AgentBase:
         raise NotImplementedError
 
     """
+        Run without multiple images and exploration
+    """
+    def test_run_fast(self, tics_per_action):
+        game = self.game
+        game.new_episode()
+        done = False
+        prev_frames = deque([np.zeros(self.downscale).astype(np.float32)] * self.frame_stack_size,
+                            maxlen=self.frame_stack_size)
+
+        while not done:
+            frame = self.preprocess(game.get_state().screen_buffer)
+            prev_frames.append(frame)
+            state = np.array(prev_frames)
+            action = self.get_action(state, explore=False)
+            game.make_action(action, tics_per_action)
+            done = game.is_episode_finished()
+
+        return game.get_total_reward()
+
+    """
         Run without exploration to measure performance
     """
     def test_run(self, tics_per_action=12):
@@ -149,7 +169,7 @@ class AgentBase:
         steps = 0
 
         while not done:
-            steps += 12
+            steps += 1
             frame = self.preprocess(game.get_state().screen_buffer)
             # Quick and dirty solution that makes train_run_fast work without replacing the model.
             # Might ruin training if combined with train_run

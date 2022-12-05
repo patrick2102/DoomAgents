@@ -136,28 +136,6 @@ class AgentDQN(AgentBase):
         self.memory = deque([], maxlen=self.N)
         print("model loaded")
 
-
-
-
-    """
-        Run without multiple images and exploration
-    """
-    def test_run_fast(self, tics_per_action):
-        game = self.game
-        game.new_episode()
-        done = False
-        prev_frames = deque([np.zeros(self.downscale).astype(np.float32)] * self.frame_stack_size,
-                            maxlen=self.frame_stack_size)
-
-        while not done:
-            frame = self.preprocess(game.get_state().screen_buffer)
-            prev_frames.append(frame)
-            state = np.array(prev_frames)
-            action = self.get_action(state, explore=False)
-            game.make_action(action, tics_per_action)
-
-        return game.get_total_reward()
-
     def start_training(self, config, epoch_count=10, episodes_per_epoch=100, episodes_per_test=10, tics_per_action=12, hardcoded_path=False,
                        fast_train=True, tune_config=None):
         if tics_per_action < self.frame_stack_size:
@@ -195,11 +173,12 @@ class AgentDQN(AgentBase):
                                   e + epoch * episodes_per_epoch)
 
             self.save_model()
+            total_score = 0.0
+            for e in trange(episodes_per_epoch):
+                total_score += self.test_run_fast(tics_per_action)
 
-            for e in trange(episodes_per_test):
-                self.test_run(tics_per_action)
-                writer.add_scalar('Score_epoch_size_' + str(episodes_per_epoch), game.get_total_reward(),
-                                  e + epoch * episodes_per_test)
+            total_score /= episodes_per_epoch
+            writer.add_scalar('Score_epoch_size_' + str(episodes_per_epoch), game.get_total_reward(), epoch)
 
             first_run = False
 
