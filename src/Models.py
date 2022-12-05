@@ -91,6 +91,7 @@ class DQNModel(Model):
         x = self.conv4(x)
         x = x.view(-1, self.img_size)
         x = self.dense(x)
+        #x = F.softmax(x, dim=1)
         return x
 
     def predict(self, x):

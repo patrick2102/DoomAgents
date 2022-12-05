@@ -42,7 +42,7 @@ load_model = False
 skip_learning = False
 
 # Configuration file path
-config_file_path = os.path.join(vzd.scenarios_path, "simpler_basic.cfg")
+config_file_path = os.path.join(vzd.scenarios_path, "deadly_corridor.cfg")
 # config_file_path = os.path.join(vzd.scenarios_path, "rocket_basic.cfg")
 # config_file_path = os.path.join(vzd.scenarios_path, "basic.cfg")
 
@@ -115,6 +115,8 @@ def run(game, agent, actions, num_epochs, frame_repeat, steps_per_epoch=2000):
             action = agent.get_action(state)
             reward = game.make_action(actions[action], frame_repeat)
             done = game.is_episode_finished()
+
+            #print(reward)
 
             if not done:
                 next_state = preprocess(game.get_state().screen_buffer)

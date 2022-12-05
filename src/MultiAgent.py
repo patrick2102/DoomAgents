@@ -21,7 +21,7 @@ total_episodes = 100
 
 
 def player1():
-    agentDQN = Agent.AgentDQN(model_name='DoubleDuelDQN_simple_dm01')
+    agentDQN = Agent.AgentDuelDQN(model_name='DuelDQN_simple_dm01')
 
     agentDQN.load_model()
 
@@ -36,11 +36,15 @@ def player1():
 
     game.init()
 
+    tics_per_action = 12
+
     n = game.get_available_buttons_size()
     agentDQN.actions = [list(a) for a in it.product([0, 1], repeat=n)]
 
     for i in range(total_episodes):
-        
+
+        prev_frames = deque([np.zeros(agentDQN.downscale).astype(np.float32)] * agentDQN.frame_stack_size,
+                            maxlen=agentDQN.frame_stack_size)
         loss = 0
 
         while not game.is_episode_finished():
@@ -48,21 +52,29 @@ def player1():
                 game.respawn_player()
 
             frame = agentDQN.preprocess(game.get_state().screen_buffer)
-            state = np.array([frame] * agentDQN.frame_stack_size).astype(np.float32)
+            prev_frames.append(frame)
+
+            state = np.array(prev_frames)
             action = agentDQN.get_action(state)
+            game.set_action(action)
 
-            game.make_action(action, 8)
+            done = False
 
-            done = game.is_episode_finished()
-            reward = game.get_game_variable(
-                GameVariable.FRAGCOUNT)  # Manually calculate reward based on frags (and maybe ammo? health?)
+            for i in range(tics_per_action):
+                game.advance_action()
+                done = game.is_episode_finished()
+                if done:
+                    frame = np.zeros(agentDQN.downscale).astype(np.float32)
+                    prev_frames.append(frame)
+                    break
+                else:
+                    frame = agentDQN.preprocess(game.get_state().screen_buffer)
+                    prev_frames.append(frame)
 
-            if not done:
-                frame = agentDQN.preprocess(game.get_state().screen_buffer)
-            else:
-                frame = np.zeros(agentDQN.downscale).astype(np.float32)
+            reward = game.get_game_variable(GameVariable.FRAGCOUNT)
+            print(reward)
 
-            next_state = np.array([frame] * agentDQN.frame_stack_size).astype(np.float32)
+            next_state = np.array(prev_frames)
 
             loss += agentDQN.train(state, action, next_state, reward, done)
 

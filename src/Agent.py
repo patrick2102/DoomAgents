@@ -26,7 +26,7 @@ class AgentBase:
         self.actions = []
         self.model_name = model_name
         self.model_path = 'models/' + model_name + '.pth'
-        self.lr = learning_rate
+        self.lr = 0.00025
         self.criterion = None
         self.model = None
         self.optimizer = None
@@ -86,7 +86,7 @@ class AgentRandom(AgentBase):
 
 class AgentDQN(AgentBase):
     def __init__(self, memory_size=10000, model_name='default_DQN_model', learning_rate=1e-4, batch_size=64,
-                 frame_stack_size=4):
+                 frame_stack_size=1):
         super().__init__(learning_rate=learning_rate, model_name=model_name)
         self.N = memory_size
         self.memory = None
@@ -132,7 +132,7 @@ class AgentDQN(AgentBase):
 
     def remember(self, state, action, reward, next_state, done):
         action = self.actions.index(action)
-        reward /= 10.0
+        #reward /= 10.0
         self.memory.append([state, action, reward, next_state, done])
 
     def train(self, state, action, next_state, reward, done=False):
@@ -162,15 +162,27 @@ class AgentDQN(AgentBase):
         row = np.arange(self.batch_size)
 
         with torch.no_grad():
-            nsi = row, torch.argmax(self.model.forward(next_states), dim=1)  # nsi = next state indices
+            t = self.model.forward(next_states)
+            nsi = row, torch.argmax(t, dim=1)  # nsi = next state indices
             next_state_values = self.model.forward(next_states)[nsi]  #
-
+        """
+        print("\n next state: ")
+        print(next_state_values)
+        print("\n reward: ")
+        print(rewards)
+        print("\n not_dones")
+        print(not_dones)
+        """
         v = rewards + 0.99 * next_state_values * not_dones
 
         a = row, actions
         p = self.model.forward(states)[a]
 
         loss = self.criterion(v, p)
+
+        if float(loss.item()) > 1000:
+            print("Oh no")
+
         loss.backward()
 
         self.optimizer.step()
@@ -277,7 +289,7 @@ class AgentDQN(AgentBase):
         Train model
     """
 
-    def train_run(self, tics_per_action, first_run):
+    def train_run(self, tics_per_action, first_run, multiplayer=False, game=None):
         game = self.game
         game.new_episode()
         prev_frames = deque([np.zeros(self.downscale).astype(np.float32)] * self.frame_stack_size,
@@ -383,6 +395,9 @@ class AgentDQN(AgentBase):
         n = self.game.get_available_buttons_size()
         self.actions = [list(a) for a in it.product([0, 1], repeat=n)]
 
+    def set_up_bot_environment(self, config, hardcoded_path):
+        pass
+
     def start_training(self, config, epoch_count=10, episodes_per_epoch=100, episodes_per_test=10, tics_per_action=12,
                        hardcoded_path=False,
                        fast_train=False, tune_config=None):
@@ -429,61 +444,8 @@ class AgentDQN(AgentBase):
 
             first_run = False
 
-    def start_multiplayer(self, config, epoch_count=10, episodes_per_epoch=100, episodes_per_test=10,
-                          tics_per_action=12,
-                          hardcoded_path=False,
-                          fast_train=True, tune_config=None):
-
-        if tics_per_action < self.frame_stack_size:
-            print("tics per action can not be less than frames per step")
-            return
-
-        # Set up game environment and action
-        self.game = DoomGame()
-        game = self.game
-        game.load_config("Scenarios/multi_duel.cfg")
-        game.add_game_args("-host 2 -deathmatch +timelimit 1 +sv_spawnfarthest 1 ")
-        game.add_game_args("+name Player1 +colorset 0")
-
-        game.init()
-
-        n = self.game.get_available_buttons_size()
-        self.actions = [list(a) for a in it.product([0, 1], repeat=n)]
-        if tune_config == None:
-            self.load_model()
-        else:
-            self.load_model_config(tune_config)
-
-        # Set up ray and training details
-        writer = SummaryWriter(comment=('_' + self.model_name))
-        writer.filename_suffix = self.model_name
-        first_run = False
-
-        # Epoch runs a certain amount of episodes, followed a test run to show performance.
-        # At the end the model is saved on disk
-        for epoch in range(epoch_count):
-            print("epoch: ", epoch + 1)
-
-            for e in trange(episodes_per_epoch):
-                if fast_train:
-                    loss = self.train_run_fast(tics_per_action, first_run)
-                else:
-                    loss = self.train_run(tics_per_action, first_run)
-
-                writer.add_scalar('Loss_epoch_size_' + str(episodes_per_epoch), loss, e + epoch * episodes_per_epoch)
-                writer.add_scalar('Reward_epoch_size_' + str(episodes_per_epoch), game.get_total_reward(),
-                                  e + epoch * episodes_per_epoch)
-                writer.add_scalar('Exploration_epoch_size_' + str(episodes_per_epoch), self.exploration,
-                                  e + epoch * episodes_per_epoch)
-
-            self.save_model()
-
-            for e in trange(episodes_per_test):
-                self.test_run(tics_per_action)
-                writer.add_scalar('Score_epoch_size_' + str(episodes_per_epoch), game.get_total_reward(),
-                                  e + epoch * episodes_per_test)
-
-            first_run = False
+    def start_bot_training(self):
+        pass
 
 
 class AgentDuelDQN(AgentDQN):
@@ -542,7 +504,7 @@ class AgentDoubleDuelDQN(AgentDuelDQN):
 
         row = np.arange(self.batch_size)
 
-        #print(next_states)
+        # print(next_states)
         with torch.no_grad():
             nsi = row, torch.argmax(self.model.forward(next_states), dim=1)  # nsi = next state indices
             next_state_values = self.target.forward(next_states)[nsi]  #
@@ -553,6 +515,10 @@ class AgentDoubleDuelDQN(AgentDuelDQN):
         p = self.model.forward(states)[a]
 
         loss = self.criterion(v, p)
+
+        if float(loss.item()) > 1000:
+            print("Oh no")
+
         loss.backward()
 
         self.optimizer.step()

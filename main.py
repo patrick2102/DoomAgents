@@ -1,3 +1,7 @@
+import os
+from multiprocessing import Process
+from random import choice
+
 from src import DoomEnvironment, Agent, Models, EvolutionaryAgents, Tuning
 import torch
 import torch.nn as nn
@@ -5,6 +9,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from ray import tune
 import numpy as np
+import vizdoom as vzd
 
 # agent = Agent.AgentRandom()
 # doomEnv = DoomEnvironment.DoomEnvironmentInstance("scenarios/basic.cfg", agent)
@@ -170,12 +175,12 @@ def tune_agent(agent, doom_config):
 # agentDoubleDuelDQN_Health_Gathering_Supreme.start_training("scenarios/health_gathering_supreme.cfg",
 #                                                           episodes_per_epoch=10, epoch_count=100)
 
-
 # while True:
 #    continue
 # agentDuelDQN = Agent.AgentDuelDQN(model_name='DuelDQN_basic')
 # agentDuelDQN.start_training("scenarios/simpler_basic.cfg")
-agentDQN = Agent.AgentDoubleDuelDQN(model_name='DoubleDuelDQN_deathmatch_01')
-agentDQN.start_training("scenarios/death_match.cfg")
+agentDQN = Agent.AgentDoubleDuelDQN(model_name='DuelDQN_corridor_test_04')
+agentDQN.start_training("scenarios/deadly_corridor.cfg")
+
 
 # tune_agent(agentDuelDQN, "scenarios/basic.cfg")
