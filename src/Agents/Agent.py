@@ -9,7 +9,7 @@ from vizdoom import *
 
 
 class AgentBase:
-    def __init__(self, learning_rate=1e-4, model_name='default_model'):
+    def __init__(self, learning_rate=0.0001, model_name='default_model'):
         self.actions = []
         self.model_name = model_name
         self.model_path = 'models/'+model_name+'.pth'
@@ -19,9 +19,10 @@ class AgentBase:
         self.optimizer = None
         self.exploration = 1.0
         self.exploration_decay = 0.9995
-        self.dr = 0.9  # discount rate
+        self.dr = 0.99  # discount rate
         self.min_exploration = 0.1
         self.downscale = (30, 45)
+        self.downscale_1 = (1, 30, 45)
         self.frame_stack_size = 1
         self.game = None
 
@@ -34,6 +35,7 @@ class AgentBase:
         s = cv2.resize(s, self.downscale, interpolation=cv2.INTER_AREA)
 
         s = np.moveaxis(s, 1, 0)
+        s = np.expand_dims(s, axis=0)
 
         s = np.array(s, dtype=float)/255
 
@@ -74,8 +76,9 @@ class AgentBase:
 
         while not done:
             frame = self.preprocess(game.get_state().screen_buffer)
-            prev_frames.append(frame)
-            state = np.array(prev_frames)
+            #prev_frames.append(frame)
+            #state = np.array(prev_frames)
+            state = frame
             action = self.get_action(state, explore=False)
             game.make_action(action, tics_per_action)
             done = game.is_episode_finished()
@@ -102,7 +105,7 @@ class AgentBase:
                 game.advance_action()
                 done = game.is_episode_finished()
                 if done:
-                    frame = np.zeros(self.downscale).astype(np.float32)
+                    frame = np.zeros(self.downscale_1).astype(np.float32)
                     prev_frames.append(frame)
                     break
                 else:
@@ -129,7 +132,7 @@ class AgentBase:
             prev_frames.append(frame)
 
             state = np.array(prev_frames)
-            action = self.get_action(state)
+            action = self.get_action(frame)
             game.set_action(action)
             reward = 0
 
@@ -139,7 +142,7 @@ class AgentBase:
                 reward += game.get_last_reward()
                 done = game.is_episode_finished()
                 if done:
-                    frame = np.zeros(self.downscale).astype(np.float32)
+                    frame = np.zeros(self.downscale_1).astype(np.float32)
                     prev_frames.append(frame)
                     break
                 else:
@@ -173,7 +176,8 @@ class AgentBase:
             frame = self.preprocess(game.get_state().screen_buffer)
             # Quick and dirty solution that makes train_run_fast work without replacing the model.
             # Might ruin training if combined with train_run
-            state = np.array([frame]).astype(np.float32)
+            #state = np.array([frame]).astype(np.float32)
+            state = frame
 
             action = self.get_action(state)
             reward = game.make_action(action, tics_per_action)
@@ -183,9 +187,10 @@ class AgentBase:
             if not done:
                 frame = self.preprocess(game.get_state().screen_buffer)
             else:
-                frame = np.zeros(self.downscale).astype(np.float32)
+                frame = np.zeros(self.downscale_1).astype(np.float32)
 
-            next_state = np.array([frame]).astype(np.float32)
+            #next_state = np.array([frame]).astype(np.float32)
+            next_state = frame
 
             loss += self.train(state, action, next_state, reward, done)
 

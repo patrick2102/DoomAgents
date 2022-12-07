@@ -38,6 +38,7 @@ class AgentDQN(AgentBase):
 
     def remember(self, state, action, reward, next_state, done):
         action = self.actions.index(action)
+        reward /= 10
         self.memory.append([state, action, reward, next_state, done])
 
     def train(self, state, action, next_state, reward, done=False):
@@ -56,10 +57,10 @@ class AgentDQN(AgentBase):
 
         minibatch = np.array(minibatch.copy(), dtype=object)
 
-        states = torch.from_numpy(np.stack(minibatch[:, 0]).astype(np.double)).float().to(self.device)
+        states = torch.from_numpy(np.stack(minibatch[:, 0]).astype(float)).float().to(self.device)
         actions = torch.from_numpy(np.array(minibatch[:, 1]).astype(np.int64)).long().to(self.device)
-        rewards = torch.from_numpy(np.array(minibatch[:, 2]).astype(np.double)).double().to(self.device)
-        next_states = torch.from_numpy(np.stack(minibatch[:, 3]).astype(np.double)).float().to(self.device)
+        rewards = torch.from_numpy(np.array(minibatch[:, 2]).astype(float)).float().to(self.device)
+        next_states = torch.from_numpy(np.stack(minibatch[:, 3]).astype(float)).float().to(self.device)
         dones = torch.from_numpy(np.array(minibatch[:, 4]).astype(bool)).to(self.device)
         not_dones = ~dones
         not_dones = not_dones.int()
@@ -73,9 +74,8 @@ class AgentDQN(AgentBase):
         v = rewards + self.dr * next_state_values * not_dones
 
         a = row, actions
-        p = self.model.forward(states)[a].double()
-        eps = 1e-6
-        loss = self.criterion(v, p)
+        p = self.model.forward(states)[a]
+        loss = self.criterion(p, v)
 
         if float(loss.item()) > 10_000:
             print("wowsers")
@@ -173,12 +173,12 @@ class AgentDQN(AgentBase):
                                   e + epoch * episodes_per_epoch)
 
             self.save_model()
-            total_score = 0.0
+            avg_score = 0.0
             for e in trange(episodes_per_epoch):
-                total_score += self.test_run_fast(tics_per_action)
+                avg_score += self.test_run_fast(tics_per_action)
 
-            total_score /= episodes_per_epoch
-            writer.add_scalar('Score_epoch_size_' + str(episodes_per_epoch), game.get_total_reward(), epoch)
+            avg_score /= episodes_per_epoch
+            writer.add_scalar('Score_epoch_size_' + str(episodes_per_epoch), avg_score, epoch)
 
             first_run = False
 
