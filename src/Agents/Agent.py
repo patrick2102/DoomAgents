@@ -19,7 +19,7 @@ class AgentBase:
         self.optimizer = None
         self.exploration = 1.0
         self.exploration_decay = 0.9995
-        self.dr = 0.99  # discount rate
+        self.dr = 0.9  # discount rate
         self.min_exploration = 0.1
         self.downscale = (30, 45)
         self.downscale_1 = (1, 30, 45)
