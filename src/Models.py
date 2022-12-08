@@ -559,13 +559,13 @@ class DuelNetworkConfigurable(Model):
         linearInputSize = int(self.img_size / 2)
 
         self.state_value = nn.Sequential(
-            nn.Linear(linearInputSize, 100),
+            nn.Linear(self.img_size, 100),
             nn.ReLU(),
             nn.Linear(100, 1)
         )
 
         self.advantage_value = nn.Sequential(
-            nn.Linear(linearInputSize, 100),
+            nn.Linear(self.img_size, 100),
             nn.ReLU(),
             nn.Linear(100, action_space)
         )
@@ -592,8 +592,8 @@ class DuelNetworkConfigurable(Model):
         x1 = x[:, :sliceSize]
         x2 = x[:, sliceSize:]
 
-        state_value = self.state_value(x1).reshape(-1, 1)
-        advantage_value = self.advantage_value(x2)
+        state_value = self.state_value(x).reshape(-1, 1)
+        advantage_value = self.advantage_value(x)
 
         q = state_value + (advantage_value - advantage_value.mean(dim=1).reshape(-1, 1))
 
