@@ -20,7 +20,7 @@ class AgentBase:
         self.criterion = None
         self.model = None
         self.optimizer = None
-        self.exploration = 1.0
+        self.exploration = 0.1
         self.exploration_decay = 0.9995
         self.dr = 0.9  # discount rate
         self.min_exploration = 0.1
