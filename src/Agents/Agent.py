@@ -1,11 +1,14 @@
 import itertools as it
 import random
 from collections import deque  # for memory
+from time import sleep, time
 
 import cv2 as cv2
 import numpy as np
 import torch
 from vizdoom import *
+from vizdoom.vizdoom import DoomGame
+import vizdoom as viz
 
 
 class AgentBase:
@@ -55,6 +58,17 @@ class AgentBase:
         n = self.game.get_available_buttons_size()
         self.actions = [list(a) for a in it.product([0, 1], repeat=n)]
 
+    def set_up_game_async(self, config):
+        self.game = DoomGame()
+        self.game.load_config(config)
+        self.game.set_window_visible(True)
+        self.game.set_mode(viz.Mode.ASYNC_PLAYER)
+        self.game.init()
+
+        # Set up model and possible actions
+        n = self.game.get_available_buttons_size()
+        self.actions = [list(a) for a in it.product([0, 1], repeat=n)]
+
     def set_available_actions(self, avail_actions):
         self.actions = avail_actions
 
@@ -67,6 +81,8 @@ class AgentBase:
     """
         Run without multiple images and exploration
     """
+
+
     def test_run_fast(self, tics_per_action):
         game = self.game
         game.new_episode()
@@ -163,6 +179,9 @@ class AgentBase:
     """
         Train run fast does not support multiple images
     """
+
+
+
     def train_run_fast(self, tics_per_action, first_run):
         game = self.game
         # Training loop where learning happens

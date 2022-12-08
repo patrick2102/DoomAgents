@@ -20,8 +20,8 @@ agentDoubleDuelDQN_Basic.start_training("scenarios/basic.cfg")
 agentDQN_HealthGather = AgentsDQN.AgentDQN(model_name='DQN_HealthGather')
 agentDQN_HealthGather.start_training("scenarios/health_gathering.cfg")
 """
-agentDuelDQN_HealthGather = AgentsDQN.AgentDuelDQN(model_name='DuelDQN_HealthGather_Temp')
-agentDuelDQN_HealthGather.start_training("scenarios/health_gathering.cfg")
+# agentDuelDQN_HealthGather = AgentsDQN.AgentDuelDQN(model_name='DuelDQN_HealthGather_Temp')
+# agentDuelDQN_HealthGather.start_training("scenarios/health_gathering.cfg")
 """
 agentDoubleDuelDQN_HealthGather = AgentsDQN.AgentDoubleDuelDQN(model_name='DoubleDuelDQN_HealthGather_Temp')
 agentDoubleDuelDQN_HealthGather.start_training("scenarios/health_gathering.cfg")
@@ -42,13 +42,15 @@ agentDoubleDuelDQN_HealthGatherSupreme.start_training("scenarios/health_gatherin
 
 # Deadly Corridor experiments
 
-"""
+
 agentDQN_DeadlyCorridor = AgentsDQN.AgentDQN(model_name='DQN_DeadlyCorridor')
-agentDQN_DeadlyCorridor.start_training("scenarios/deadly_corridor.cfg")
+agentDQN_DeadlyCorridor.run_async_test("scenarios/deadly_corridor.cfg")
 
-agentDuelDQN_DeadlyCorridor = AgentsDQN.AgentDuelDQN(model_name='DuelDQN_DeadlyCorridor')
-agentDuelDQN_DeadlyCorridor.start_training("scenarios/deadly_corridor.cfg")
+# agentDQN_DeadlyCorridor.start_training("scenarios/deadly_corridor.cfg", epoch_count=50)
 
-agentDoubleDuelDQN_DeadlyCorridor = AgentsDQN.AgentDoubleDuelDQN(model_name='DoubleDuelDQN_DeadlyCorridor')
-agentDoubleDuelDQN_DeadlyCorridor.start_training("scenarios/deadly_corridor.cfg")
-"""
+# agentDuelDQN_DeadlyCorridor = AgentsDQN.AgentDuelDQN(model_name='DuelDQN_DeadlyCorridor')
+# agentDuelDQN_DeadlyCorridor.start_training("scenarios/deadly_corridor.cfg", epoch_count=50)
+#
+# agentDoubleDuelDQN_DeadlyCorridor = AgentsDQN.AgentDoubleDuelDQN(model_name='DoubleDuelDQN_DeadlyCorridor')
+# agentDoubleDuelDQN_DeadlyCorridor.start_training("scenarios/deadly_corridor.cfg", epoch_count=50)
+
