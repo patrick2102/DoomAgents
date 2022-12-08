@@ -174,11 +174,11 @@ class AgentDQN(AgentBase):
 
             self.save_model()
             avg_score = 0.0
-            for e in trange(episodes_per_epoch):
+            for e in trange(episodes_per_test):
                 avg_score += self.test_run_fast(tics_per_action)
 
-            avg_score /= episodes_per_epoch
-            writer.add_scalar('Score_epoch_size_' + str(episodes_per_epoch), avg_score, epoch)
+            avg_score /= episodes_per_test
+            writer.add_scalar('Score_epoch_size_' + str(episodes_per_test), avg_score, epoch)
 
             first_run = False
 
