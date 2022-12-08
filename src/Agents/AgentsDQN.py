@@ -1,6 +1,7 @@
 import random
 from collections import deque  # for memory
 from os.path import exists
+from time import sleep
 
 import numpy as np
 import torch
@@ -114,6 +115,30 @@ class AgentDQN(AgentBase):
     def get_model(self):
         return Models.DQNModel(self.downscale[0], self.downscale[1], len(self.actions), stack_size=self.frame_stack_size)
 
+    def run_async_test(self, config):
+
+        self.set_up_game_async(config)
+        self.load_model()
+
+        episodes_to_watch = 10
+        tics_per_action = 12
+
+        for _ in range(episodes_to_watch):
+            self.game.new_episode()
+            while not self.game.is_episode_finished():
+                state = self.preprocess(self.game.get_state().screen_buffer)
+                best_action = self.get_action(state, explore=False)
+
+                # Instead of make_action(a, frame_repeat) in order to make the animation smooth
+                self.game.set_action(best_action)
+                for _ in range(tics_per_action):
+                    self.game.advance_action()
+
+            # Sleep between episodes
+            sleep(1.0)
+            score = self.game.get_total_reward()
+            print("Total score: ", score)
+
     def load_model(self):
         self.device = "cpu"
         if torch.cuda.is_available():
@@ -174,10 +199,10 @@ class AgentDQN(AgentBase):
 
             self.save_model()
             avg_score = 0.0
-            for e in trange(episodes_per_epoch):
+            for e in trange(episodes_per_test):
                 avg_score += self.test_run_fast(tics_per_action)
 
-            avg_score /= episodes_per_epoch
+            avg_score /= episodes_per_test
             writer.add_scalar('Score_epoch_size_' + str(episodes_per_epoch), avg_score, epoch)
 
             first_run = False
