@@ -203,6 +203,9 @@ class AgentDoubleDuelDQN(AgentDuelDQN):
     def __init__(self, memory_size=10000, model_name='default_DoubleDuelDQN_model', learning_rate=1e-4, batch_size=64):
         super().__init__(memory_size=memory_size, learning_rate=learning_rate, model_name=model_name, batch_size=batch_size)
 
+    def get_model(self):
+        return Models.DuelNetworkConfigurable(self.downscale[0], self.downscale[1], len(self.actions), self.frame_stack_size)
+
     def load_model(self):
         self.device = "cpu"
         if torch.cuda.is_available():
