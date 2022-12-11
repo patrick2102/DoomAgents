@@ -679,16 +679,12 @@ class ActorCritic(Model):
         x = x.to(self.device)
 
         x = self.conv1(x)
-        #x = self.drop_out(x)
 
         x = self.conv2(x)
-        #x = self.drop_out(x)
 
         x = self.conv3(x)
-        #x = self.drop_out(x)
 
         x = self.conv4(x)
-        #x = self.drop_out(x)
 
         x = x.view(-1, self.img_size)
 
@@ -700,5 +696,8 @@ class ActorCritic(Model):
 
     def predict(self, x):
         _, x = self.forward(x)
+        x = torch.squeeze(x)
         # print(x)
         return torch.argmax(x)
+
+
