@@ -73,7 +73,17 @@ class AgentBase:
         self.actions = avail_actions
 
     def get_action(self, state, explore=True):
-        raise NotImplementedError
+        if random.random() < self.exploration and explore:
+            action_index = random.randint(0, len(self.actions)-1)
+            action = self.actions[action_index]
+        else:
+            state = np.expand_dims(state, axis=0)
+            with torch.no_grad():
+                state = torch.from_numpy(state).float().cpu()
+                action_index = int(self.model.predict(state))
+            action = self.actions[action_index]
+
+        return action
 
     def train(self, state, last_action, next_state, reward,  done=False):
         raise NotImplementedError
