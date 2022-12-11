@@ -19,12 +19,29 @@ class A2C(AgentBase):
         super().__init__(learning_rate=learning_rate, model_name=model_name)
         self.N = memory_size
         self.memory = None
-        self.exploration = 0.1
+        self.exploration = 1.0
         self.min_exploration = 0.1
-        self.dr = 0.9
+        self.dr = 0.99
         self.norm_rewards = None
-        self.batch_size = 64
+        self.batch_size = batch_size
         self.frame_stack_size = 1
+        self.actor_model = None
+        self.critic_model = None
+        self.actor_model_path = 'models/'+model_name+'_actor'+'.pth'
+        self.critic_model_path = 'models/'+model_name+'_critic'+'.pth'
+
+    def get_action(self, state, explore=True):
+        if random.random() < self.exploration and explore:
+            action_index = random.randint(0, len(self.actions)-1)
+            action = self.actions[action_index]
+        else:
+            state = np.expand_dims(state, axis=0)
+            with torch.no_grad():
+                state = torch.from_numpy(state).float().cpu()
+                action_index = int(self.actor_model.predict(state))
+            action = self.actions[action_index]
+
+        return action
 
     def train_run_fast(self, tics_per_action, first_run):
         game = self.game
@@ -78,7 +95,6 @@ class A2C(AgentBase):
     def replay(self, batch=None):
         #minibatch = batch
         minibatch = random.sample(self.memory, self.batch_size)
-        self.optimizer.zero_grad()
 
         minibatch = np.array(minibatch.copy(), dtype=object)
 
@@ -93,9 +109,10 @@ class A2C(AgentBase):
         row = np.arange(self.batch_size)
 
         a = row, actions
-        v, pd = self.model.forward(states)
+        pd = self.actor_model.forward(states)
+        v = self.critic_model.forward(states)
         with torch.no_grad():
-            ns_v, _ = self.model.forward(next_states)
+            ns_v = self.critic_model.forward(next_states)
 
         ns_v = np.squeeze(ns_v)
         v = np.squeeze(v)
@@ -106,34 +123,27 @@ class A2C(AgentBase):
 
         pd = pd.squeeze(0)[a]
 
-        eps = 0.00000001
+        eps = 1e-5
 
-        pd = torch.log(pd)
+        pd_logs = torch.log(pd+eps)
 
-        actor_loss = (-pd*advantage)
+        c3 = 1e-3
+        entropy = -torch.sum(pd*pd_logs)
+        actor_loss = (-pd_logs*advantage)
         critic_loss = (advantage.pow(2))
 
-        #actor_loss = (pd*advantage).mean()
-        #critic_loss = 0.5*(advantage**2).mean()
+        loss = torch.abs(actor_loss + critic_loss).mean()
 
-        #loss = torch.sqrt((actor_loss + critic_loss)**2)
-        #loss = torch.abs((actor_loss + critic_loss).mean())
-        loss = 0.5*(actor_loss+critic_loss).pow(2).mean()
-        #loss = torch.abs(0.5 * (actor_loss + critic_loss).mean())
-
-        #loss = self.criterion(actor_loss, critic_loss)
-
+        self.actor_optimizer.zero_grad()
+        self.critic_optimizer.zero_grad()
         loss.backward()
-        #actor_loss.backward()
-        #critic_loss.backward()
-
-        self.optimizer.step()
-        #return 0.0
+        self.actor_optimizer.step()
+        self.critic_optimizer.step()
         return actor_loss.mean().item(), critic_loss.mean().item()
 
     def remember(self, state, action, reward, next_state, done):
         action = self.actions.index(action)
-        reward /= 10.0
+        #reward /= 10.0
         self.memory.append([state, action, reward, next_state, done])
 
     def train(self, state, action, next_state, reward, done=False):
@@ -145,9 +155,10 @@ class A2C(AgentBase):
 
         return 0.0, 0.0
 
-    def get_model(self):
-        return Models.ActorCritic(self.downscale[0], self.downscale[1], len(self.actions),
-                                  stack_size=self.frame_stack_size)
+    def save_model(self):
+        torch.save(self.critic_model.state_dict(), self.critic_model_path)
+        torch.save(self.actor_model.state_dict(), self.actor_model_path)
+        print("model saved")
 
     def load_model(self):
         self.device = "cpu"
@@ -156,22 +167,30 @@ class A2C(AgentBase):
 
         self.criterion = nn.MSELoss()
 
-        self.model = self.get_model()
+        #self.model = self.get_model()
+        self.critic_model = Models.CriticModel(self.downscale[0], self.downscale[1], len(self.actions),
+                                  stack_size=self.frame_stack_size)
+        self.actor_model = Models.ActorModel(self.downscale[0], self.downscale[1], len(self.actions),
+                                  stack_size=self.frame_stack_size)
 
-        if exists(self.model_path):
-            self.model.load_state_dict(torch.load(self.model_path))
+        if exists(self.critic_model_path):
+            self.critic_model.load_state_dict(torch.load(self.critic_model_path))
+            self.actor_model.load_state_dict(torch.load(self.actor_model_path))
 
-        self.model.set_device(self.device)
-        self.model.to(self.device)
+        self.critic_model.set_device(self.device)
+        self.critic_model.to(self.device)
+        self.actor_model.set_device(self.device)
+        self.actor_model.to(self.device)
 
         self.criterion.to(self.device)
 
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
+        self.critic_optimizer = optim.Adam(self.critic_model.parameters(), lr=self.lr)
+        self.actor_optimizer = optim.Adam(self.actor_model.parameters(), lr=self.lr)
         self.memory = deque([], maxlen=self.N)
         print("model loaded")
 
     def start_training(self, config, epoch_count=10, episodes_per_epoch=100, episodes_per_test=10, tics_per_action=12, hardcoded_path=False,
-                       fast_train=True, tune_config=None):
+                       fast_train=True, tune_config=None, use_ppo=False):
         if tics_per_action < self.frame_stack_size:
             print("tics per action can not be less than frames per step")
             return
@@ -202,6 +221,7 @@ class A2C(AgentBase):
 
                 writer.add_scalar('Actor_Loss_epoch_size_' + str(episodes_per_epoch), actor_loss, e + epoch * episodes_per_epoch)
                 writer.add_scalar('Critic_Loss_epoch_size_' + str(episodes_per_epoch), critic_loss, e + epoch * episodes_per_epoch)
+                writer.add_scalar('Loss_epoch_size_' + str(episodes_per_epoch), actor_loss+critic_loss, e + epoch * episodes_per_epoch)
                 writer.add_scalar('Reward_epoch_size_' + str(episodes_per_epoch), game.get_total_reward(),
                                   e + epoch * episodes_per_epoch)
                 writer.add_scalar('Exploration_epoch_size_' + str(episodes_per_epoch), self.exploration,
@@ -227,7 +247,6 @@ class A2CPPO(A2C):
 
     def remember(self, state, action, reward, next_state, done):
         action = self.actions.index(action)
-        reward /= 10.0
         with torch.no_grad():
             s = copy.copy(state)
             s = np.expand_dims(s, axis=0)
@@ -235,7 +254,6 @@ class A2CPPO(A2C):
             v, old_pd = self.model.forward(s)
             old_pd = np.squeeze(old_pd)
             old_pd = old_pd[action]
-            #old_pd = float(old_pd.cpu().numpy())
             old_pd = old_pd.cpu().numpy()
 
             #advantage =
