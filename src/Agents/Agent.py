@@ -21,7 +21,7 @@ class AgentBase:
         self.model = None
         self.optimizer = None
         self.exploration = 1.0
-        self.exploration_decay = 0.9995
+        self.exploration_decay = 0.99995
         self.dr = 0.9  # discount rate
         self.min_exploration = 0.1
         self.downscale = (30, 45)
@@ -73,7 +73,17 @@ class AgentBase:
         self.actions = avail_actions
 
     def get_action(self, state, explore=True):
-        raise NotImplementedError
+        if random.random() < self.exploration and explore:
+            action_index = random.randint(0, len(self.actions)-1)
+            action = self.actions[action_index]
+        else:
+            state = np.expand_dims(state, axis=0)
+            with torch.no_grad():
+                state = torch.from_numpy(state).float().cpu()
+                action_index = int(self.model.predict(state))
+            action = self.actions[action_index]
+
+        return action
 
     def train(self, state, last_action, next_state, reward,  done=False):
         raise NotImplementedError
@@ -82,6 +92,29 @@ class AgentBase:
         Run without multiple images and exploration
     """
 
+    def run_async_test(self, config):
+
+        self.set_up_game_async(config)
+        self.load_model()
+
+        episodes_to_watch = 10
+        tics_per_action = 12
+
+        for _ in range(episodes_to_watch):
+            self.game.new_episode()
+            while not self.game.is_episode_finished():
+                state = self.preprocess(self.game.get_state().screen_buffer)
+                best_action = self.get_action(state, explore=False)
+
+                # Instead of make_action(a, frame_repeat) in order to make the animation smooth
+                self.game.set_action(best_action)
+                for _ in range(tics_per_action):
+                    self.game.advance_action()
+
+            # Sleep between episodes
+            sleep(1.0)
+            score = self.game.get_total_reward()
+            print("Total score: ", score)
 
     def test_run_fast(self, tics_per_action):
         game = self.game
@@ -179,8 +212,6 @@ class AgentBase:
     """
         Train run fast does not support multiple images
     """
-
-
 
     def train_run_fast(self, tics_per_action, first_run):
         game = self.game

@@ -38,7 +38,6 @@ class AgentDQN(AgentBase):
 
     def remember(self, state, action, reward, next_state, done):
         action = self.actions.index(action)
-        reward /= 10
         self.memory.append([state, action, reward, next_state, done])
 
     def train(self, state, action, next_state, reward, done=False):
@@ -111,8 +110,14 @@ class AgentDQN(AgentBase):
         self.memory = deque([], maxlen=self.N)
         print("model loaded")
 
+    def set_model(self, model):
+        self.model = model
+
     def get_model(self):
-        return Models.DQNModel(self.downscale[0], self.downscale[1], len(self.actions), stack_size=self.frame_stack_size)
+        if self.model is None:
+            return Models.DQNModel(self.downscale[0], self.downscale[1], len(self.actions), stack_size=self.frame_stack_size)
+        else:
+            return self.model(self.downscale[0], self.downscale[1], len(self.actions), stack_size=self.frame_stack_size)
 
     def load_model(self):
         self.device = "cpu"
@@ -188,12 +193,18 @@ class AgentDuelDQN(AgentDQN):
         super().__init__(memory_size=memory_size, learning_rate=learning_rate, model_name=model_name, batch_size=batch_size)
 
     def get_model(self):
-        return Models.DuelNetworkConfigurable(self.downscale[0], self.downscale[1], len(self.actions), self.frame_stack_size)
+        if self.model is None:
+            return Models.DuelNetworkConfigurable(self.downscale[0], self.downscale[1], len(self.actions), self.frame_stack_size)
+        else:
+            return self.model(self.downscale[0], self.downscale[1], len(self.actions), self.frame_stack_size)
 
 
 class AgentDoubleDuelDQN(AgentDuelDQN):
     def __init__(self, memory_size=10000, model_name='default_DoubleDuelDQN_model', learning_rate=1e-4, batch_size=64):
         super().__init__(memory_size=memory_size, learning_rate=learning_rate, model_name=model_name, batch_size=batch_size)
+
+    def get_model(self):
+        return Models.DuelNetworkConfigurable(self.downscale[0], self.downscale[1], len(self.actions), self.frame_stack_size)
 
     def load_model(self):
         self.device = "cpu"
@@ -238,10 +249,10 @@ class AgentDoubleDuelDQN(AgentDuelDQN):
         row = np.arange(self.batch_size)
 
         with torch.no_grad():
-            nsi = row, torch.argmax(self.model.forward(next_states), dim=1)  # nsi = next state indices
+            nsi = row, torch.argmax(self.target.forward(next_states), dim=1)  # nsi = next state indices
             next_state_values = self.target.forward(next_states)[nsi] #
 
-        v = rewards + 0.99 * next_state_values * not_dones
+        v = rewards + self.dr * next_state_values * not_dones
 
         a = row, actions
         p = self.model.forward(states)[a]

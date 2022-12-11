@@ -21,20 +21,7 @@ class A2C(AgentBase):
         self.memory = None
         self.norm_rewards = None
         self.batch_size = 64
-        self.frame_stack_size = 4
-
-    def get_action(self, state, explore=True):
-        if random.random() < self.exploration and explore:
-            action_index = random.randint(0, len(self.actions)-1)
-            action = self.actions[action_index]
-        else:
-            state = np.expand_dims(state, axis=0)
-            with torch.no_grad():
-                state = torch.from_numpy(state).float().cpu()
-                action_index = int(self.model.predict(state))
-            action = self.actions[action_index]
-
-        return action
+        self.frame_stack_size = 1
 
     def replay(self, batch_size):
         minibatch = random.sample(self.memory, batch_size)
@@ -124,7 +111,7 @@ class A2C(AgentBase):
         print("model loaded")
 
     def start_training(self, config, epoch_count=10, episodes_per_epoch=100, episodes_per_test=10, tics_per_action=12, hardcoded_path=False,
-                       fast_train=False, tune_config=None):
+                       fast_train=True, tune_config=None):
         if tics_per_action < self.frame_stack_size:
             print("tics per action can not be less than frames per step")
             return
@@ -160,11 +147,12 @@ class A2C(AgentBase):
                                   e + epoch * episodes_per_epoch)
 
             self.save_model()
-
+            avg_score = 0.0
             for e in trange(episodes_per_test):
-                self.test_run(tics_per_action)
-                writer.add_scalar('Score_epoch_size_' + str(episodes_per_epoch), game.get_total_reward(),
-                                  e + epoch * episodes_per_test)
+                avg_score += self.test_run_fast(tics_per_action)
+
+            avg_score /= episodes_per_test
+            writer.add_scalar('Score_epoch_size_' + str(episodes_per_test), avg_score, epoch)
 
             first_run = False
 
