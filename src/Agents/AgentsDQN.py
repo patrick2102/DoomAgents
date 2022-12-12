@@ -22,6 +22,8 @@ class AgentDQN(AgentBase):
         self.norm_rewards = None
         self.batch_size = batch_size
         self.frame_stack_size = frame_stack_size
+        #self.max_reward = -1000000.0
+        #self.min_reward = 10000000.0
 
     def get_action(self, state, explore=True):
         if random.random() < self.exploration and explore:
@@ -38,6 +40,13 @@ class AgentDQN(AgentBase):
 
     def remember(self, state, action, reward, next_state, done):
         action = self.actions.index(action)
+        """
+        if reward > self.max_reward:
+            self.max_reward = reward
+        if reward < self.min_reward:
+            self.min_reward = reward
+        """
+
         self.memory.append([state, action, reward, next_state, done])
 
     def train(self, state, action, next_state, reward, done=False):
@@ -64,6 +73,8 @@ class AgentDQN(AgentBase):
         not_dones = ~dones
         not_dones = not_dones.int()
 
+        #rewards = (rewards - self.min_reward)/(self.max_reward-self.min_reward)
+
         row = np.arange(self.batch_size)
 
         with torch.no_grad():
@@ -74,7 +85,7 @@ class AgentDQN(AgentBase):
 
         a = row, actions
         p = self.model.forward(states)[a]
-        loss = self.criterion(p, v)
+        loss = 0.5 * self.criterion(p, v)
 
         if float(loss.item()) > 10_000:
             print("wowsers")

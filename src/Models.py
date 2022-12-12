@@ -69,18 +69,21 @@ class DQNModel(Model):
         self.conv4 = nn.Sequential(
             nn.Conv2d(c3, c4, ks, bias=False),
             nn.BatchNorm2d(c4),
-            nn.ReLU()
+            nn.ReLU(),
+            nn.MaxPool2d(4, stride=4)
         )
         img_x -= (ks - 1)
         img_y -= (ks - 1)
+        img_x -= 4
+        img_y -= 4
 
         self.img_size = (c4 * img_x * img_y)
         linearInputSize = int(self.img_size)
 
         self.dense = nn.Sequential(
-            nn.Linear(linearInputSize, d1),
+            nn.Linear(self.img_size, 100),
             nn.ReLU(),
-            nn.Linear(d1, action_space)
+            nn.Linear(100, action_space)
         )
 
     def forward(self, x):
