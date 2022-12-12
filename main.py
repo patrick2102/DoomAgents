@@ -69,10 +69,10 @@ agentDuelDQN_Tuning_DefendTheLine_2_layers.set_model(duelDDQN_Model_2)
 agentDuelDQN_Tuning_DefendTheLine_1_layers = AgentsDQN.AgentDuelDQN(model_name='Tuning_DuelDQN_DefendTheLine_1_Layers')
 agentDuelDQN_Tuning_DefendTheLine_1_layers.set_model(duelDDQN_Model_1)
 
-#agentDuelDQN_Tuning_DefendTheLine_1_layers.start_training("scenarios/defend_the_line.cfg", epoch_count=20)
-#agentDuelDQN_Tuning_DefendTheLine_2_layers.start_training("scenarios/defend_the_line.cfg", epoch_count=20)
-#agentDuelDQN_Tuning_DefendTheLine_3_layers.start_training("scenarios/defend_the_line.cfg", epoch_count=20)
-#agentDuelDQN_Tuning_DefendTheLine_4_layers.start_training("scenarios/defend_the_line.cfg", epoch_count=20)
+agentDuelDQN_Tuning_DefendTheLine_1_layers.start_training("scenarios/defend_the_line.cfg", episodes_per_test=10, episodes_per_epoch=100)
+agentDuelDQN_Tuning_DefendTheLine_2_layers.start_training("scenarios/defend_the_line.cfg")
+agentDuelDQN_Tuning_DefendTheLine_3_layers.start_training("scenarios/defend_the_line.cfg")
+agentDuelDQN_Tuning_DefendTheLine_4_layers.start_training("scenarios/defend_the_line.cfg")
 
 
 #Comments
