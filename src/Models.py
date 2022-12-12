@@ -27,7 +27,7 @@ class Model(nn.Module):
         raise NotImplementedError
 
 class DQNModel(Model):
-    def __init__(self, x_size, y_size, action_space, c1=8, c2=8, c3=8, c4=16, d1=100, stack_size=1):
+    def __init__(self, x_size, y_size, action_space,  c1=16, c2=32, c3=32, c4=64, d1=100, stack_size=1):
         super(DQNModel, self).__init__()
 
         print("Running DQNModel")
