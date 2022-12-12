@@ -244,14 +244,22 @@ class A2CPPO(A2C):
         self.old_pd = None
         self.max_al = 0.0
         self.max_cl = 0.0
+        self.frame_stack_size = 1
+        self.min_reward = 10000000.0
+        self.max_reward = -10000000.0
 
     def remember(self, state, action, reward, next_state, done):
         action = self.actions.index(action)
+        if reward < self.min_reward:
+            self.min_reward = reward
+        if reward > self.max_reward:
+            self.max_reward = reward
+
         with torch.no_grad():
             s = copy.copy(state)
             s = np.expand_dims(s, axis=0)
             s = torch.from_numpy(s).float().cpu()
-            v, old_pd = self.model.forward(s)
+            old_pd = self.actor_model.forward(s)
             old_pd = np.squeeze(old_pd)
             old_pd = old_pd[action]
             old_pd = old_pd.cpu().numpy()
@@ -260,9 +268,8 @@ class A2CPPO(A2C):
         # state, action, reward, next state, done, old_policy
         self.memory.append([state, action, reward, next_state, done, old_pd])
 
-    def replay(self, batch_size):
-        minibatch = random.sample(self.memory, batch_size)
-        self.optimizer.zero_grad()
+    def replay(self, batch=None):
+        minibatch = random.sample(self.memory, self.batch_size)
 
         minibatch_og = minibatch
         minibatch = np.array(minibatch, dtype=object)
@@ -276,12 +283,15 @@ class A2CPPO(A2C):
         not_dones = ~dones
         not_dones = not_dones.int()
 
+        #rewards = (rewards-self.min_reward)/(self.max_reward-self.min_reward)
+
         row = np.arange(self.batch_size)
 
         a = row, actions
-        v, pd = self.model.forward(states)
+        v = self.critic_model.forward(states)
+        pd = self.actor_model(states)
         with torch.no_grad():
-            ns_v, _ = self.model.forward(next_states)
+            ns_v = self.critic_model.forward(next_states)
 
         ns_v = np.squeeze(ns_v)
         v = np.squeeze(v)
@@ -290,23 +300,30 @@ class A2CPPO(A2C):
 
         advantage = q - v
 
-        pd_logs = torch.log(pd)
+        pd = pd.squeeze(0)
+
+        eps = 1e-2
+
+        pd_logs = torch.log(pd+eps)
+        old_pd_logs = torch.log(old_pds+eps)
+
+        #pd_logs = torch.log(pd)
         with torch.no_grad():
             entropy = pd * pd_logs
             entropy = -torch.sum(entropy, dim=1)
-            pd = pd.squeeze(0)
+            #pd = pd.squeeze(0)
 
 
-
+        entropy_constant = 0.001
         #loss = torch.abs((actor_loss + critic_loss).mean())
 
-        c1 = 1.0
-        c2 = 0.01
+        #c1 = 1.0
+        #c2 = 0.01
 
-        old_pd_logs = torch.log(old_pds)
 
-        #ratios = torch.exp((pd_logs[a]+1e-10)-(old_pd_logs+1e-10))
-        ratios = pd[a]/old_pd_logs
+        ratios = torch.exp((pd_logs[a]+1e-10)-(old_pd_logs+1e-10))
+        #ratios = torch.exp(pd_logs[a] - old_pd_logs)
+        #ratios = pd[a]/old_pds
 
         eps = 0.2
 
@@ -316,16 +333,24 @@ class A2CPPO(A2C):
 
         b = torch.clamp(ratios, 1-eps, 1+eps) * advantage
         s2 = b
+        surr = -torch.min(s1, s2)
+
 
         #b = torch.clamp(advantage, 0, 1)
         #torch.ceil(b)
         #b = b - (1-b)
         #s2 = (1+(eps*b))*advantage
 
-        actor_loss = -torch.mean(torch.min(s1, s2))
+        #actor_loss = -torch.mean(torch.min(s1, s2))
 
-        critic_loss = torch.mean((rewards-v)**2)
+        #critic_loss = torch.mean((advantage)**2)
 
+        #actor_loss = (-pd_logs[a]*advantage)
+        actor_loss = -torch.min(s1, s2)
+        critic_loss = 0.5 * (advantage).pow(2)
+
+        #loss = torch.abs(actor_loss + critic_loss).mean()
+        """
         if self.max_cl < float(critic_loss):
             self.max_cl = float(critic_loss)
             print("max critic loss: ", float(critic_loss))
@@ -335,27 +360,15 @@ class A2CPPO(A2C):
             print("s1: ", s1)
             print("s2: ", s2)
             print("max actor  loss: ", float(actor_loss))
+        """
 
-        loss = c1 * (actor_loss + critic_loss) #+ c2 * entropy
+        loss = torch.abs(actor_loss + critic_loss).mean()
 
-        #loss = surr + c1*(ns_v - v)**2 + c2 * (-torch.sum(pd*pd_log))
-        #loss = c1 * (actor_loss + critic_loss)
-        #loss += c2 * entropy
-        #loss = surr + c1*(actor_loss+critic_loss) + c2 * (-torch.sum(pd*pd_log))
-        #loss = torch.abs(loss.mean())
-        #loss = loss.mean()
-        #loss = torch.abs(loss.mean())
-
+        self.actor_optimizer.zero_grad()
+        self.critic_optimizer.zero_grad()
         loss.backward()
-
-        self.optimizer.step()
-
-        #old_pds = pd.cpu().detach().numpy()
-
-        #old_pds = pd
-
-        #minibatch[:, 5] = pd1
-        #minibatch_og[:, 5] = pd1
+        self.actor_optimizer.step()
+        self.critic_optimizer.step()
 
         # Temp solution, should be calculated using vectors instead
         pd = pd[a]
@@ -363,4 +376,4 @@ class A2CPPO(A2C):
         for i in range(self.batch_size):
             minibatch_og[i][5] = float(pd[i])
 
-        return loss.item()
+        return actor_loss.mean().item(), critic_loss.mean().item()
