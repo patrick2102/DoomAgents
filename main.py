@@ -4,12 +4,26 @@ from src import DoomEnvironment, Tuning, Models
 from src.Agents import Agent, AgentsDQN, AgentsA2C
 
 
+"""running an agent"""
+
+agentDuelDQN_Basic = AgentsDQN.AgentDuelDQN(model_name='EXAMPLE_MODEL_NAME')
+agentDuelDQN_Basic.start_training("scenarios/basic.cfg")
+
+#agentDuelDQN_HealthGather = AgentsDQN.AgentDuelDQN(model_name='')
+#agentDuelDQN_HealthGather.start_training("scenarios/health_gathering.cfg")
+
+# agentDoubleDuelDQN_HealthGatherSupreme = AgentsDQN.AgentDoubleDuelDQN(model_name='')
+# agentDoubleDuelDQN_HealthGatherSupreme.run_final_test("scenarios/health_gathering_supreme.cfg")
+
+# agentA2C_DeadlyCorridor = AgentsA2C.A2C(model_name='')
+# agentA2C_DeadlyCorridor.run_final_test("scenarios/deadly_corridor.cfg")
+
+
 """Basic experiments"""
 # agentDQN_Basic = AgentsDQN.AgentDQN(model_name='DQN_Basic')
 # agentDQN_Basic.start_training("scenarios/basic.cfg")
 # agentDQN_Basic.run_async_test("scenarios/basic.cfg")
 # agentDQN_Basic.replay_show("scenarios/basic.cfg")
-
 
 #agentDuelDQN_Basic = AgentsDQN.AgentDuelDQN(model_name='DuelDQN_Basic')
 #agentDuelDQN_Basic.start_training("scenarios/basic.cfg")
@@ -35,8 +49,6 @@ from src.Agents import Agent, AgentsDQN, AgentsA2C
 # agentDQN_HealthGather.run_final_test("scenarios/health_gathering.cfg")
 # agentDQN_HealthGather.run_async_test("scenarios/health_gathering.cfg")
 # agentDQN_HealthGather.replay_show("scenarios/health_gathering.cfg")
-
-
 
 # Health Gather Supreme experiments
 # agentDQN_HealthGatherSupreme = AgentsDQN.AgentDQN(model_name='NewDQN_HealthGatherSupreme6KNoDrop05_Real_1')
@@ -73,7 +85,6 @@ from src.Agents import Agent, AgentsDQN, AgentsA2C
 # agentA2C_HealthGather.run_final_test("scenarios/health_gathering_supreme.cfg")
 
 """Deadly Corridor experiments"""
-
 
 # agentDQN_DeadlyCorridor = AgentsDQN.AgentDQN(model_name='NEW_WED_DQN_DeadlyCorridor_1')
 # agentDQN_DeadlyCorridor.run_final_test("scenarios/deadly_corridor.cfg")

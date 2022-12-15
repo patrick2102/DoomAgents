@@ -283,8 +283,7 @@ class A2CPPO(A2C):
             old_pd = old_pd[action]
             old_pd = old_pd.cpu().numpy()
 
-            #advantage =
-        # state, action, reward, next state, done, old_policy
+            #advantage = state, action, reward, next state, done, old_policy
         self.memory.append([state, action, reward, next_state, done, old_pd])
 
     def replay(self, batch=None):

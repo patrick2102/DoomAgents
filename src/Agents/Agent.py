@@ -88,9 +88,6 @@ class AgentBase:
     def train(self, state, last_action, next_state, reward,  done=False):
         raise NotImplementedError
 
-    """
-        Run without multiple images and exploration
-    """
 
     def run_async_test(self, config):
 
@@ -157,6 +154,7 @@ class AgentBase:
 
         game.close()
 
+    """Run without multiple images and exploration"""
     def test_run_fast(self, tics_per_action):
         game = self.game
         game.new_episode()
