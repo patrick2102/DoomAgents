@@ -152,14 +152,13 @@ class AgentDQN(AgentBase):
         self.memory = deque([], maxlen=self.N)
         print("model loaded")
 
-    def run_final_test(self, config, episodes_per_test=100, tics_per_action=12, epochs=10):
+    def run_final_test(self, config, episodes_per_test=100, tics_per_action=12, epochs=11):
         self.set_up_game_environment(config, False)
 
         self.load_model()
 
         writer = SummaryWriter(comment=('_' + self.model_name + '_final_test'))
         writer.filename_suffix = self.model_name
-        first_run = False
 
         for epoch in range(epochs):
             avg_score = 0.0

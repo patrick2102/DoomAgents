@@ -189,7 +189,23 @@ class A2C(AgentBase):
         self.memory = deque([], maxlen=self.N)
         print("model loaded")
 
-    def start_training(self, config, epoch_count=10, episodes_per_epoch=100, episodes_per_test=10, tics_per_action=12, hardcoded_path=False,
+    def run_final_test(self, config, episodes_per_test=100, tics_per_action=12, epochs=11):
+        self.set_up_game_environment(config, False)
+
+        self.load_model()
+
+        writer = SummaryWriter(comment=('_' + self.model_name + '_final_test'))
+        writer.filename_suffix = self.model_name
+
+        for epoch in range(epochs):
+            avg_score = 0.0
+
+            for e in trange(episodes_per_test):
+                avg_score += self.test_run_fast(tics_per_action)
+
+            avg_score /= episodes_per_test
+            writer.add_scalar('Score_epoch_size_' + str(episodes_per_test), avg_score, epoch)
+    def start_training(self, config, epoch_count=10, episodes_per_epoch=100, episodes_per_test=100, tics_per_action=12, hardcoded_path=False,
                        fast_train=True, tune_config=None, use_ppo=False):
         if tics_per_action < self.frame_stack_size:
             print("tics per action can not be less than frames per step")
