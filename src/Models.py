@@ -70,12 +70,12 @@ class DQNModel(Model):
             nn.Conv2d(c3, c4, ks, bias=False),
             nn.BatchNorm2d(c4),
             nn.ReLU(),
-            nn.MaxPool2d(4, stride=4)
+            # nn.MaxPool2d(4, stride=4)
         )
         img_x -= (ks - 1)
         img_y -= (ks - 1)
-        img_x -= 4
-        img_y -= 4
+        # img_x -= 4
+        # img_y -= 4
 
         self.img_size = (c4 * img_x * img_y)
         linearInputSize = int(self.img_size)

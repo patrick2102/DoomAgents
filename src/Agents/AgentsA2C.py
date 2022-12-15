@@ -189,7 +189,7 @@ class A2C(AgentBase):
         self.memory = deque([], maxlen=self.N)
         print("model loaded")
 
-    def run_final_test(self, config, episodes_per_test=100, tics_per_action=12, epochs=11):
+    def run_final_test(self, config, episodes_per_test=100, tics_per_action=12, epochs=2):
         self.set_up_game_environment(config, False)
 
         self.load_model()

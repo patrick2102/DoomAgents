@@ -94,14 +94,14 @@ class AgentBase:
 
     def run_async_test(self, config):
 
-        self.set_up_game_async(config)
+        self.set_up_game_environment(config, False)
         self.load_model()
 
         episodes_to_watch = 10
         tics_per_action = 12
 
-        for _ in range(episodes_to_watch):
-            self.game.new_episode()
+        for i in range(episodes_to_watch):
+            self.game.new_episode("replays/episode" + str(i) + "_rec.lmp")
             while not self.game.is_episode_finished():
                 state = self.preprocess(self.game.get_state().screen_buffer)
                 best_action = self.get_action(state, explore=False)
@@ -110,11 +110,52 @@ class AgentBase:
                 self.game.set_action(best_action)
                 for _ in range(tics_per_action):
                     self.game.advance_action()
+                # reward = self.game.make_action(best_action)
+
 
             # Sleep between episodes
             sleep(1.0)
             score = self.game.get_total_reward()
             print("Total score: ", score)
+        self.game.close()
+
+    def replay_show(self, config):
+
+        episodes = 10
+        game = DoomGame()
+        game.load_config(config)
+        game.set_screen_resolution(ScreenResolution.RES_800X600)
+        game.set_render_hud(True)
+
+        # Replay can be played in any mode.
+        game.set_mode(Mode.SPECTATOR)
+
+        game.init()
+
+        for i in range(episodes):
+
+            # Replays episodes stored in given file. Sending game command will interrupt playback.
+            game.replay_episode("replays/episode" + str(i) + "_rec.lmp")
+
+            while not game.is_episode_finished():
+                s = game.get_state()
+
+                # Use advance_action instead of make_action.
+                game.advance_action()
+
+                r = game.get_last_reward()
+                # game.get_last_action is not supported and don't work for replay at the moment.
+
+                # print("State #" + str(s.number))
+                # print("Game variables:", s.game_variables[0])
+                # print("Reward:", r)
+                # print("=====================")
+
+            # print("Episode", i, "finished.")
+            # print("total reward:", game.get_total_reward())
+            # print("************************")
+
+        game.close()
 
     def test_run_fast(self, tics_per_action):
         game = self.game

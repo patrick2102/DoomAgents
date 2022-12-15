@@ -141,7 +141,7 @@ class AgentDQN(AgentBase):
         self.model = self.get_model()
 
         if exists(self.model_path):
-            self.model.load_state_dict(torch.load(self.model_path))
+            self.model.load_state_dict(torch.load(self.model_path), strict=False)
 
         self.model.set_device(self.device)
         self.model.to(self.device)
@@ -250,8 +250,8 @@ class AgentDoubleDuelDQN(AgentDuelDQN):
         self.target = self.get_model()
 
         if exists(self.model_path):
-            self.model.load_state_dict(torch.load(self.model_path))
-            self.target.load_state_dict(torch.load(self.model_path))
+            self.model.load_state_dict(torch.load(self.model_path), strict=False)
+            self.target.load_state_dict(torch.load(self.model_path), strict=False)
 
         self.model.set_device(self.device)
         self.model.to(self.device)
