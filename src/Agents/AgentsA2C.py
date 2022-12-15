@@ -174,8 +174,8 @@ class A2C(AgentBase):
                                   stack_size=self.frame_stack_size)
 
         if exists(self.critic_model_path):
-            self.critic_model.load_state_dict(torch.load(self.critic_model_path))
-            self.actor_model.load_state_dict(torch.load(self.actor_model_path))
+            self.critic_model.load_state_dict(torch.load(self.critic_model_path), strict=False)
+            self.actor_model.load_state_dict(torch.load(self.actor_model_path), strict=False)
 
         self.critic_model.set_device(self.device)
         self.critic_model.to(self.device)
@@ -201,10 +201,13 @@ class A2C(AgentBase):
             avg_score = 0.0
 
             for e in trange(episodes_per_test):
-                avg_score += self.test_run_fast(tics_per_action)
+                score = 0.0
+                score = self.test_run_fast(tics_per_action)
+                avg_score += score
+                writer.add_scalar('Score_epoch_size_' + str(episodes_per_test), score, e + epoch * episodes_per_test)
 
             avg_score /= episodes_per_test
-            writer.add_scalar('Score_epoch_size_' + str(episodes_per_test), avg_score, epoch)
+            writer.add_scalar('Average_Score_epoch_size_' + str(episodes_per_test), avg_score, epoch)
     def start_training(self, config, epoch_count=10, episodes_per_epoch=100, episodes_per_test=100, tics_per_action=12, hardcoded_path=False,
                        fast_train=True, tune_config=None, use_ppo=False):
         if tics_per_action < self.frame_stack_size:
