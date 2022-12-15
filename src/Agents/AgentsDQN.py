@@ -164,10 +164,13 @@ class AgentDQN(AgentBase):
             avg_score = 0.0
 
             for e in trange(episodes_per_test):
-                avg_score += self.test_run_fast(tics_per_action)
+                score = 0.0
+                score = self.test_run_fast(tics_per_action)
+                avg_score += score
+                writer.add_scalar('Score_epoch_size_' + str(episodes_per_test), score, e + epoch * episodes_per_test)
 
             avg_score /= episodes_per_test
-            writer.add_scalar('Score_epoch_size_' + str(episodes_per_test), avg_score, epoch)
+            writer.add_scalar('Average_Score_epoch_size_' + str(episodes_per_test), avg_score, epoch)
 
 
     def start_training(self, config, epoch_count=10, episodes_per_epoch=100, episodes_per_test=10, tics_per_action=12, hardcoded_path=False,
