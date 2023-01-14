@@ -1,8 +1,4 @@
-import vizdoom
-
-from src import DoomEnvironment, Tuning, Models
-from src.Agents import Agent, AgentsDQN, AgentsA2C
-
+from src.Agents import AgentsDQN
 
 """running an agent"""
 

@@ -125,7 +125,10 @@ class A2C(AgentBase):
 
         eps = 1e-5
 
-        pd_logs = torch.log(pd+eps)
+        pd_logs = torch.log(pd+eps) # -log(0.1) > -log(0.5)
+
+        # If A < 0: then p in -log(p) goes down. Making loss more negative
+        # If A > 0: then p in -log(p) goes up. Making A multiply with a lower number.
 
         c3 = 1e-3
         entropy = -torch.sum(pd*pd_logs)

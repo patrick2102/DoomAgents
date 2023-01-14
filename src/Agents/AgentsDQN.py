@@ -28,8 +28,8 @@ class AgentDQN(AgentBase):
             action_index = random.randint(0, len(self.actions)-1)
             action = self.actions[action_index]
         else:
-            state = np.expand_dims(state, axis=0)
-            with torch.no_grad():
+            state = np.expand_dims(state, axis=0)  # (30,45) -> (1, 30, 45)
+            with torch.no_grad(): # Don't calculate gradients. Unnecessary in this case and compuationally heavy.
                 state = torch.from_numpy(state).float().cpu()
                 action_index = int(self.model.predict(state))
             action = self.actions[action_index]
@@ -65,13 +65,14 @@ class AgentDQN(AgentBase):
         not_dones = ~dones
         not_dones = not_dones.int()
 
-        row = np.arange(self.batch_size)
+        row = np.arange(self.batch_size) # [0, 1, ..., n]
 
         with torch.no_grad():
             nsi = row, torch.argmax(self.model.forward(next_states), dim=1)  # nsi = next state indices
-            next_state_values = self.model.forward(next_states)[nsi] #
+            # nsi = ([0, 1, 2,...n],[a0*, a1*, ...,an*]) Right are indices
+            next_state_values = self.model.forward(next_states)[nsi]  # next_state_values = [[a01, a02, ..], [a11, a12, ...]][0, 1, ... n],[a0*, ] => [v(a0*), v(a1*), ... v(an*)]
 
-        v = rewards + self.dr * next_state_values * not_dones
+        v = rewards + self.dr * next_state_values * not_dones  # Multiply with not dones. If done then v = rewards
 
         a = row, actions
         p = self.model.forward(states)[a]
@@ -110,9 +111,6 @@ class AgentDQN(AgentBase):
         self.optimizer = optim.SGD(self.model.parameters(), lr=tune_config["lr"], momentum=tune_config["momentum"])
         self.memory = deque([], maxlen=self.N)
         print("model loaded")
-
-    def set_model(self, model):
-        self.model = model
 
     def get_model(self):
         if self.model is None:
