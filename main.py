@@ -1,9 +1,10 @@
-from src.Agents import AgentsDQN
+from src.Agents import AgentsDQN, AgentsA2C
+from src import DoomEnvironment
 
 """running an agent"""
 
-agentDuelDQN_Basic = AgentsDQN.AgentDuelDQN(model_name='EXAMPLE_MODEL_NAME')
-agentDuelDQN_Basic.start_training("scenarios/basic.cfg")
+#agentDuelDQN_Basic = AgentsDQN.AgentDuelDQN(model_name='EXAMPLE_MODEL_NAME')
+#agentDuelDQN_Basic.start_training("scenarios/basic.cfg")
 
 #agentDuelDQN_HealthGather = AgentsDQN.AgentDuelDQN(model_name='')
 #agentDuelDQN_HealthGather.start_training("scenarios/health_gathering.cfg")
@@ -125,6 +126,21 @@ agentDuelDQN_Basic.start_training("scenarios/basic.cfg")
 # agentDuelDQN_Tuning_DefendTheLine_3_layers.start_training("scenarios/defend_the_line.cfg")
 # agentDuelDQN_Tuning_DefendTheLine_4_layers.start_training("scenarios/defend_the_line.cfg")
 
+
+#PPO
+agentA2CPPO_Basic = AgentsA2C.A2CPPO(model_name='A2CPPO_Basic', batch_size=256)
+agentA2CPPO_Basic.start_training("scenarios/basic.cfg", episodes_per_test=10)
+
+#agentA2CPPO_HealthGather = AgentsA2C.A2CPPO(model_name='A2CPPO_HealthGather')
+#agentA2CPPO_HealthGather.start_training("scenarios/health_gathering.cfg", episodes_per_test=1, epoch_count=50)
+
+
+agentA2CPPO_Multi1 = AgentsA2C.A2CPPO(model_name='A2CPPO_Multi1', batch_size=256)
+agentA2CPPO_Multi2 = AgentsA2C.A2CPPO(model_name='A2CPPO_Multi2', batch_size=256)
+
+DoomEnvironment.StartMultiplayerMatchTrain(agentA2CPPO_Multi1, agentA2CPPO_Multi2, config="scenarios/multi.cfg")
+
+#agentA2CPPO_Basic.start_training("scenarios/basic.cfg", episodes_per_test=10)
 
 #Comments
 
