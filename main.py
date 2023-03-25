@@ -1,5 +1,6 @@
 from src.Agents import AgentsDQN, AgentsA2C
 from src import DoomEnvironment
+import sys
 
 """running an agent"""
 
@@ -128,31 +129,37 @@ from src import DoomEnvironment
 
 
 #PPO
-agentA2CPPO_Basic = AgentsA2C.A2CPPO(model_name='A2CPPO_Basic', batch_size=256)
-agentA2CPPO_Basic.start_training("scenarios/basic.cfg", episodes_per_test=10)
+#agentA2CPPO_Basic = AgentsA2C.A2CPPO(model_name='A2CPPO_Basic', batch_size=256)
+#agentA2CPPO_Basic.start_training("scenarios/basic.cfg", episodes_per_test=10)
 
 #agentA2CPPO_HealthGather = AgentsA2C.A2CPPO(model_name='A2CPPO_HealthGather')
 #agentA2CPPO_HealthGather.start_training("scenarios/health_gathering.cfg", episodes_per_test=1, epoch_count=50)
 
 
-agentA2CPPO_Multi1 = AgentsA2C.A2CPPO(model_name='A2CPPO_Multi1', batch_size=256)
-agentA2CPPO_Multi2 = AgentsA2C.A2CPPO(model_name='A2CPPO_Multi2', batch_size=256)
+#agentA2CPPO_Multi1 = AgentsA2C.A2CPPO(model_name='A2CPPO_Multi1', batch_size=256)
+#agentA2CPPO_Multi2 = AgentsA2C.A2CPPO(model_name='A2CPPO_Multi2', batch_size=256)
 
-DoomEnvironment.StartMultiplayerMatchTrain(agentA2CPPO_Multi1, agentA2CPPO_Multi2, config="scenarios/multi.cfg")
+#DoomEnvironment.StartMultiplayerMatchTrain(agentA2CPPO_Multi1, agentA2CPPO_Multi2, config="scenarios/multi.cfg")
 
-#agentA2CPPO_Basic.start_training("scenarios/basic.cfg", episodes_per_test=10)
 
-#Comments
 
-#1 layer model:
-"""
-    Started out spinning and shooting the first enemies in the room, but then standing still until the time ran out.
-    
-    Afterwards it learned to go sideways and shoot to kill the first enemy. Never got much better after this.
-"""
+commands = {
+    "model": "",
+    "scenario": ""
+}
 
-#2 layer model
+def interpretCommands():
+    for i in range(1, len(sys.argv)):
+        if sys.argv[i] == '-m':
+            commands['model'] = sys.argv[i+1]
+            i += 1
+        elif sys.argv[i] == '-s':
+            commands['scenario'] = sys.argv[i+1]
+            i += 1
 
-"""
-    Started spinning and shooting, then shot left enemy and moved sideways as above. Sometimes both enemies are shot.
-"""
+
+
+interpretCommands()
+
+agent = AgentsA2C.A2CPPO(model_name=commands['model'], batch_size=256)
+agent.start_training(commands['scenario'], episodes_per_test=10)

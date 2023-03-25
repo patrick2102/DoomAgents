@@ -1,0 +1,4 @@
+vizdoom
+pygame
+tensorboard
+opencv-python
