@@ -38,7 +38,7 @@ class AgentBase:
         s = cv2.resize(s, self.downscale, interpolation=cv2.INTER_AREA)
 
         s = np.moveaxis(s, 1, 0)
-        s = np.expand_dims(s, axis=0)
+        #s = np.expand_dims(s, axis=0)
 
         s = np.array(s, dtype=float)/255
 
@@ -187,18 +187,12 @@ class AgentBase:
             frame = self.preprocess(game.get_state().screen_buffer)
             prev_frames.append(frame)
             state = np.array(prev_frames)
+
             action = self.get_action(state, explore=False)
-            game.set_action(action)
-            for i in range(tics_per_action):
-                game.advance_action()
-                done = game.is_episode_finished()
-                if done:
-                    frame = np.zeros(self.downscale_1).astype(np.float32)
-                    prev_frames.append(frame)
-                    break
-                else:
-                    frame = self.preprocess(game.get_state().screen_buffer)
-                    prev_frames.append(frame)
+
+            game.make_action(action, tics_per_action)
+
+            done = game.is_episode_finished()
 
         return game.get_total_reward()
 
@@ -208,7 +202,7 @@ class AgentBase:
     def train_run(self, tics_per_action, first_run):
         game = self.game
         game.new_episode()
-        prev_frames = deque([np.zeros(self.downscale).astype(np.float32)] * self.frame_stack_size,
+        prev_frames = deque([np.zeros(self.downscale_1).astype(np.float32)] * self.frame_stack_size,
                             maxlen=self.frame_stack_size)
         done = False
         loss = 0

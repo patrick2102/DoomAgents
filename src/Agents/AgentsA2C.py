@@ -43,6 +43,57 @@ class A2C(AgentBase):
 
         return action
 
+    def train_run(self, tics_per_action, first_run):
+        game = self.game
+        # Training loop where learning happens
+        game.new_episode()
+        done = False
+        actor_loss = 0
+        critic_loss = 0
+        steps = 0
+
+        prev_frames = deque([np.zeros(self.downscale).astype(np.float32)] * self.frame_stack_size,
+                            maxlen=self.frame_stack_size)
+
+        while not done:
+            steps += 1
+            frame = self.preprocess(game.get_state().screen_buffer)
+            prev_frames.append(frame)
+            # Quick and dirty solution that makes train_run_fast work without replacing the model.
+            # Might ruin training if combined with train_run
+            # state = np.array([frame]).astype(np.float32)
+            state = np.array(prev_frames)
+
+            action = self.get_action(state)
+            reward = game.make_action(action, tics_per_action)
+
+            done = game.is_episode_finished()
+
+            if not done:
+                frame = self.preprocess(game.get_state().screen_buffer)
+            else:
+                frame = np.zeros(self.downscale).astype(np.float32)
+
+            # next_state = np.array([frame]).astype(np.float32)
+            next_state = np.array(prev_frames)
+
+            al, cl = self.train(state, action, next_state, reward, done)
+            actor_loss += al
+            critic_loss += cl
+            # self.memory.append()
+            # action = self.actions.index(action)
+            # mem.append([state, action, reward, next_state, done])
+
+            if not first_run:
+                self.decay_exploration()
+
+        actor_loss /= steps
+        critic_loss /= steps
+
+        # loss = self.replay(mem)
+
+        return actor_loss, critic_loss
+
     def train_run_fast(self, tics_per_action, first_run):
         game = self.game
         # Training loop where learning happens
@@ -91,6 +142,9 @@ class A2C(AgentBase):
         # loss = self.replay(mem)
 
         return actor_loss, critic_loss
+
+
+
 
     def replay(self, batch=None):
         # minibatch = batch
@@ -257,7 +311,8 @@ class A2C(AgentBase):
             self.save_model()
             avg_score = 0.0
             for e in trange(episodes_per_test):
-                avg_score += self.test_run_fast(tics_per_action)
+                #avg_score += self.test_run_fast(tics_per_action)
+                avg_score += self.test_run(tics_per_action)
 
             avg_score /= episodes_per_test
             writer.add_scalar('Score_epoch_size_' + str(episodes_per_test), avg_score, epoch)
@@ -271,7 +326,7 @@ class A2CPPO(A2C):
         self.old_pd = None
         self.N = memory_size
         self.batch_size = batch_size
-        self.frame_stack_size = 1
+        self.frame_stack_size = 4
 
     def remember(self, state, action, reward, next_state, done):
         action = self.actions.index(action)
