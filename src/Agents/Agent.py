@@ -295,10 +295,9 @@ class AgentBase:
         print("model saved")
 
     def decay_exploration(self):
-        if len(self.memory) >= self.batch_size:
-            self.exploration *= self.exploration_decay
-            if self.exploration < self.min_exploration:
-                self.exploration = self.min_exploration
+        self.exploration *= self.exploration_decay
+        if self.exploration < self.min_exploration:
+            self.exploration = self.min_exploration
 
 
 class AgentRandom(AgentBase):

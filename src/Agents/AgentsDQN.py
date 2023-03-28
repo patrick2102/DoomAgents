@@ -45,14 +45,14 @@ class AgentDQN(AgentBase):
         self.remember(state, action, reward, next_state, done)
 
         if len(self.memory) >= self.batch_size:
-            loss = self.replay(self.batch_size)
+            loss = self.replay()
             return loss
 
         return 0
 
-    def replay(self, batch_size):
+    def replay(self):
         #self.normalize_rewards()
-        minibatch = random.sample(self.memory, batch_size)
+        minibatch = random.sample(self.memory, self.batch_size)
         self.optimizer.zero_grad()
 
         minibatch = np.array(minibatch.copy(), dtype=object)
@@ -252,8 +252,8 @@ class AgentDoubleDuelDQN(AgentDuelDQN):
         self.memory = deque([], maxlen=self.N)
         print("model loaded")
 
-    def replay(self, batch_size):
-        minibatch = random.sample(self.memory, batch_size)
+    def replay(self):
+        minibatch = random.sample(self.memory, self.batch_size)
         self.optimizer.zero_grad()
 
         minibatch = np.array(minibatch.copy(), dtype=object)

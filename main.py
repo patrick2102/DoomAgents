@@ -20,5 +20,8 @@ def interpretCommands():
 
 interpretCommands()
 
-agent = AgentsA2C.A2CPPO(model_name=commands['model'], batch_size=16)
-agent.start_training(commands['scenario'], episodes_per_test=10, episodes_per_epoch=10, fast_train=False)
+#agent = AgentsA2C.A2CPPO(model_name=commands['model'], batch_size=256)
+#agent.start_training(commands['scenario'], episodes_per_test=100, episodes_per_epoch=100, fast_train=False)
+
+agent = AgentsA2C.A2CPPO(model_name=commands['model'], batch_size=256)
+agent.start_training(commands['scenario'], episodes_per_test=100, episodes_per_epoch=100, fast_train=False)

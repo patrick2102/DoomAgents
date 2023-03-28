@@ -442,7 +442,7 @@ class DuelNetworkConfigurable(Model):
 
 
 class ActorModel(Model):
-    def __init__(self, x_size, y_size, action_space, stack_size, c1=32, c2=32, p=0.1):
+    def __init__(self, x_size, y_size, action_space, stack_size, c1=16, c2=32, c3=32, c4=64, p=0.1):
         super(ActorModel, self).__init__()
         print("Running A2C")
 
@@ -469,7 +469,25 @@ class ActorModel(Model):
         img_x -= (ks - 1)
         img_y -= (ks - 1)
 
-        self.img_size = int(c2 * img_x * img_y)
+        ks = 3
+        self.conv3 = nn.Sequential(
+            nn.Conv2d(c2, c3, ks, bias=False),
+            nn.BatchNorm2d(c3),
+            nn.ReLU()
+        )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        ks = 3
+        self.conv4 = nn.Sequential(
+            nn.Conv2d(c3, c4, ks, bias=False),
+            nn.BatchNorm2d(c4),
+            nn.ReLU()
+        )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        self.img_size = int(c4 * img_x * img_y)
 
         self.actor = nn.Sequential(
             nn.Linear(self.img_size, 100),
@@ -483,6 +501,10 @@ class ActorModel(Model):
         x = self.conv1(x)
 
         x = self.conv2(x)
+
+        x = self.conv3(x)
+
+        x = self.conv4(x)
 
         x = x.view(-1, self.img_size)
 
@@ -499,7 +521,7 @@ class ActorModel(Model):
 
 
 class CriticModel(Model):
-    def __init__(self, x_size, y_size, stack_size, c1=32, c2=32, p=0.1):
+    def __init__(self, x_size, y_size, stack_size, c1=16, c2=32, c3=32, c4=64, p=0.1):
         super(CriticModel, self).__init__()
         print("Running A2C")
 
@@ -523,11 +545,28 @@ class CriticModel(Model):
             nn.BatchNorm2d(c2),
             nn.ReLU()
         )
-
         img_x -= (ks - 1)
         img_y -= (ks - 1)
 
-        self.img_size = int(c2 * img_x * img_y)
+        ks = 3
+        self.conv3 = nn.Sequential(
+            nn.Conv2d(c2, c3, ks, bias=False),
+            nn.BatchNorm2d(c3),
+            nn.ReLU()
+        )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        ks = 3
+        self.conv4 = nn.Sequential(
+            nn.Conv2d(c3, c4, ks, bias=False),
+            nn.BatchNorm2d(c4),
+            nn.ReLU()
+        )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        self.img_size = int(c4 * img_x * img_y)
 
         self.critic = nn.Sequential(
             nn.Linear(self.img_size, 100),
@@ -542,6 +581,10 @@ class CriticModel(Model):
 
         x = self.conv2(x)
 
+        x = self.conv3(x)
+
+        x = self.conv4(x)
+
         x = x.view(-1, self.img_size)
 
         critic_value = self.critic(x)
@@ -554,3 +597,190 @@ class CriticModel(Model):
         return torch.argmax(x)
 
 
+class ActorCriticModel(Model):
+    def __init__(self, x_size, y_size, action_space, stack_size, c1=16, c2=32, c3=32, c4=64, p=0.1):
+        super(ActorCriticModel, self).__init__()
+        print("Running A2C")
+
+        self.p = p
+        self.drop_out = nn.Dropout(p)
+        img_x = x_size
+        img_y = y_size
+
+        ks = 3
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(stack_size, c1, ks, bias=False),
+            nn.BatchNorm2d(c1),
+            nn.ReLU()
+        )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        ks = 3
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(c1, c2, ks, bias=False),
+            nn.BatchNorm2d(c2),
+            nn.ReLU()
+        )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        ks = 3
+        self.conv3 = nn.Sequential(
+            nn.Conv2d(c2, c3, ks, bias=False),
+            nn.BatchNorm2d(c3),
+            nn.ReLU()
+        )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        ks = 3
+        self.conv4 = nn.Sequential(
+            nn.Conv2d(c3, c4, ks, bias=False),
+            nn.BatchNorm2d(c4),
+            nn.ReLU()
+        )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        self.img_size = int(c4 * img_x * img_y)
+
+        self.actor = nn.Sequential(
+            nn.Linear(self.img_size, 100),
+            nn.ReLU(),
+            nn.Linear(100, action_space)
+        )
+
+        self.critic = nn.Sequential(
+            nn.Linear(self.img_size, 100),
+            nn.ReLU(),
+            nn.Linear(100, 1)
+        )
+
+
+
+    def forward(self, x):
+        x = self.conv1(x)
+
+        x = self.conv2(x)
+
+        x = self.conv3(x)
+
+        x = self.conv4(x)
+
+        x = x.view(-1, self.img_size)
+
+
+        actor_policy = self.actor(x)
+        actor_policy = F.softmax(actor_policy, dim=1)
+
+        critic_value = self.critic(x)
+
+        return actor_policy, critic_value
+
+    def predict(self, x):
+        x, _ = self.forward(x)
+        x = torch.squeeze(x)
+        return torch.argmax(x)
+
+class ActorCriticModelLSTM(Model):
+    def __init__(self, x_size, y_size, action_space, stack_size, c1=16, c2=32, c3=32, c4=64, hidden_size=256, p=0.1):
+        super(ActorCriticModelLSTM, self).__init__()
+        print("Running A2C")
+
+        self.lstm_hidden_size = hidden_size
+        self.p = p
+        self.drop_out = nn.Dropout(p)
+        img_x = x_size
+        img_y = y_size
+
+        ks = 3
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(stack_size, c1, ks, bias=False),
+            nn.BatchNorm2d(c1),
+            nn.ReLU()
+        )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        ks = 3
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(c1, c2, ks, bias=False),
+            nn.BatchNorm2d(c2),
+            nn.ReLU()
+        )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        ks = 3
+        self.conv3 = nn.Sequential(
+            nn.Conv2d(c2, c3, ks, bias=False),
+            nn.BatchNorm2d(c3),
+            nn.ReLU()
+        )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        ks = 3
+        self.conv4 = nn.Sequential(
+            nn.Conv2d(c3, c4, ks, bias=False),
+            nn.BatchNorm2d(c4),
+            nn.ReLU()
+        )
+        img_x -= (ks - 1)
+        img_y -= (ks - 1)
+
+        self.img_size = int(c4 * img_x * img_y)
+
+        #self.lstm = nn.LSTM(self.img_size, hidden_size, batch_first=True)
+
+        self.lstm = nn.LSTM(input_size=self.img_size, hidden_size=hidden_size, num_layers=1,
+                            batch_first=True)
+
+
+        self.actor = nn.Sequential(
+            nn.Linear(hidden_size, 100),
+            nn.ReLU(),
+            nn.Linear(100, action_space)
+        )
+
+        self.critic = nn.Sequential(
+            nn.Linear(hidden_size, 100),
+            nn.ReLU(),
+            nn.Linear(100, 1)
+        )
+
+
+
+    def forward(self, x, h_c=None):
+        x = self.conv1(x)
+
+        x = self.conv2(x)
+
+        x = self.conv3(x)
+
+        x = self.conv4(x)
+
+        batch_size, timesteps, C, H = x.size()
+
+        x = x.view(batch_size, timesteps, -1)
+
+        if h_c is None:
+            h = torch.zeros(1, batch_size, self.lstm_hidden_size)
+            c = torch.zeros(1, batch_size, self.lstm_hidden_size)
+        else:
+            h, c = h_c
+
+        lstm_out, (h_new, c_new) = self.lstm(x, (h, c))
+
+        actor_policy = self.actor(lstm_out[:, -1, :])
+        actor_policy = F.softmax(actor_policy, dim=1)
+
+        critic_value = self.critic(lstm_out[:, -1, :])
+
+        return actor_policy, critic_value, (h_new, c_new)
+
+    def predict(self, x):
+        x, _, _ = self.forward(x)
+        x = torch.squeeze(x)
+        return torch.argmax(x)
