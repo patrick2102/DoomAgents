@@ -323,22 +323,17 @@ class A2C(AgentBase):
 class A2CPPO(A2C):
     def __init__(self, memory_size=10000, model_name='default_A2C_model', learning_rate=1e-4, batch_size=64):
         super().__init__(learning_rate=learning_rate, model_name=model_name)
-        self.old_pd = None
-        self.N = memory_size
+        self.memory_size = memory_size
         self.batch_size = batch_size
         self.frame_stack_size = 4
+        self.memory = []
 
     def remember(self, state, action, reward, next_state, done):
         action = self.actions.index(action)
 
         with torch.no_grad():
-            s = copy.copy(state)
-            s = np.expand_dims(s, axis=0)
-            s = torch.from_numpy(s).float().cpu()
-            old_pd = self.actor_model.forward(s)
-            old_pd = np.squeeze(old_pd)
-            old_pd = old_pd[action]
-            old_pd = old_pd.cpu().numpy()
+            s = torch.from_numpy(state).float().unsqueeze(0)
+            old_pd = self.actor_model(s).squeeze()[action].cpu().detach().numpy()
 
         self.memory.append([state, action, reward, next_state, done, old_pd])
 
@@ -353,60 +348,39 @@ class A2CPPO(A2C):
         rewards = torch.from_numpy(np.array(minibatch[:, 2]).astype(float)).float().to(self.device)
         next_states = torch.from_numpy(np.stack(minibatch[:, 3]).astype(np.double)).float().to(self.device)
         dones = torch.from_numpy(np.array(minibatch[:, 4]).astype(bool)).to(self.device)
-        old_pds = torch.from_numpy(np.array(minibatch[:, 5]).astype(float)).float().to(self.device)
-        not_dones = ~dones
-        not_dones = not_dones.int()
+        old_prob_dists = torch.from_numpy(np.array(minibatch[:, 5]).astype(float)).float().to(self.device)
+        not_dones = (~dones).int()
 
-        row = np.arange(self.batch_size)
+        state_values = self.critic_model(states).squeeze()
+        next_state_values = self.critic_model(next_states).detach().squeeze()
+        q_values = rewards + self.dr * next_state_values * not_dones
+        advantages = q_values - state_values
 
-        a = row, actions
-        v = self.critic_model.forward(states)
-        pd = self.actor_model(states)
-        with torch.no_grad():
-            ns_v = self.critic_model.forward(next_states)
-
-        ns_v = np.squeeze(ns_v)
-        v = np.squeeze(v)
-
-        q = rewards + self.dr * ns_v * not_dones
-
-        advantage = q - v
-
-        pd = pd.squeeze(0)[a]
-
-        eps = 1e-5
+        prob_dists = self.actor_model(states).squeeze(0)[np.arange(self.batch_size), actions]
 
         with torch.no_grad():
-            pd += eps
+            prob_dists += 1e-5
 
-        pd_logs = torch.log(pd)
+        prob_dists_logs = torch.log(prob_dists)
 
         with torch.no_grad():
-            old_pd_logs = torch.log(old_pds + eps)
-
-        ratios = torch.exp(pd_logs - old_pd_logs)
+            old_prob_dist_logs = torch.log(old_prob_dists + 1e-5)
 
         eps = 0.2
-
-        s1 = ratios
-
-        s2 = torch.clamp(ratios, 1 - eps, 1 + eps)
-
-        actor_loss = -(torch.min(s1, s2) * advantage)
-
-        critic_loss = (advantage.pow(2))
-
-        loss = torch.abs(actor_loss + critic_loss).mean()
+        ratios = torch.exp(prob_dists_logs - old_prob_dist_logs)
+        clipped_ratios = ratios.clamp(1 - eps, 1 + eps)
+        actor_loss = -(torch.min(ratios, clipped_ratios) * advantages)
+        mse_loss = nn.MSELoss()
+        critic_loss = mse_loss(state_values, q_values)
+        loss = actor_loss.mean() + critic_loss.mean()
 
         self.actor_optimizer.zero_grad()
         self.critic_optimizer.zero_grad()
-
         loss.backward()
-
         self.actor_optimizer.step()
         self.critic_optimizer.step()
 
-        for i in range(self.batch_size):
-            minibatch_og[i][5] = float(pd[i])
+        for i, p in zip(minibatch_og, prob_dists):
+            i[5] = float(p)
 
         return actor_loss.mean().item(), critic_loss.mean().item()
