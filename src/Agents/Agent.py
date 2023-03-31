@@ -44,7 +44,7 @@ class AgentBase:
 
         return s
 
-    def set_up_game_environment(self, config, hardcoded_path):
+    def set_up_game_environment(self, config, hardcoded_path, render=False):
         # Set up game environment
         self.game = DoomGame()
         if hardcoded_path:
@@ -52,6 +52,10 @@ class AgentBase:
         else:
             config_path = config
         self.game.load_config(config_path)
+
+        if not render:
+            self.game.set_window_visible(False)
+        
         self.game.init()
 
         # Set up model and possible actions
