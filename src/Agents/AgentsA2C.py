@@ -3,6 +3,7 @@ import random
 from collections import deque  # for memory
 from os.path import exists
 
+import cv2
 from torch.utils.data import DataLoader, RandomSampler
 import numpy as np
 import torch
@@ -13,7 +14,6 @@ from tqdm import trange
 
 from src import Models
 from src.Agents.Agent import AgentBase
-
 
 class A2C(AgentBase):
     def __init__(self, memory_size=10000, model_name='default_A2C_model', learning_rate=1e-4, batch_size=64):
@@ -345,6 +345,8 @@ class A2CPPO(A2C):
 
         return 0.0, 0.0
 
+
+
     def train_run(self, tics_per_action, first_run):
         game = self.game
         # Training loop where learning happens
@@ -406,7 +408,7 @@ class A2CPPO(A2C):
 
         # self.model = self.get_model()
 
-        self.model = Models.ActorCriticModelLSTM(self.downscale[0], self.downscale[1], len(self.actions),
+        self.model = Models.ActorCriticModel(self.downscale[0], self.downscale[1], len(self.actions),
                                              stack_size=self.frame_stack_size)
 
         if exists(self.model_path):
@@ -437,7 +439,7 @@ class A2CPPO(A2C):
 
         with torch.no_grad():
             s = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
-            old_pd, _, _ = self.model(s, None)
+            old_pd, _ = self.model(s)
             old_pd = old_pd.squeeze()[action]
 
         #state = torch.from_numpy(state).to(self.device)
@@ -540,3 +542,266 @@ class A2CPPO(A2C):
         self.memory['old_probs'].index_copy_(0, sampled_indices, prob_dists)
 
         return actor_loss.mean().item(), critic_loss.mean().item()
+
+
+
+
+class A2CPPOLSTM(A2C):
+    def __init__(self, memory_size=1000, model_name='default_A2C_model', learning_rate=1e-4, batch_size=64):
+        super().__init__(learning_rate=learning_rate, model_name=model_name)
+        self.memory_size = memory_size
+        self.batch_size = batch_size
+        self.frame_stack_size = 10
+        self.max_sample = 0
+        self.sequence_idx = 0
+        self.memory_idx = 0
+        self.exploration_decay = 0.9995
+        self.N = memory_size
+
+
+    def train(self, state, action, next_state, reward, done=False):
+        self.remember(state, action, reward, next_state, done)
+
+        if self.max_sample >= self.batch_size:
+            loss = self.replay()
+            return loss
+
+        return 0.0, 0.0
+
+    def train_run(self, tics_per_action, first_run):
+        game = self.game
+        # Training loop where learning happens
+        game.new_episode()
+        done = False
+        actor_loss = 0
+        critic_loss = 0
+        steps = 0
+
+        prev_frames = deque([np.zeros(self.downscale).astype(np.float32)] * self.frame_stack_size,
+                            maxlen=self.frame_stack_size)
+
+
+        while not done:
+            steps += 1
+            frame = self.preprocess(game.get_state().screen_buffer)
+            prev_frames.append(frame)
+
+            state = np.array(prev_frames)
+
+            action = self.get_action(state)
+            reward = game.make_action(action, tics_per_action)
+
+            done = game.is_episode_finished()
+
+            if not done:
+                frame = self.preprocess(game.get_state().screen_buffer)
+            else:
+                frame = np.zeros(self.downscale).astype(np.float32)
+
+            prev_frames.append(frame)
+
+            next_state = np.array(prev_frames)
+
+            al, cl = self.train(state, action, next_state, reward, done)
+            actor_loss += al
+            critic_loss += cl
+
+            if not first_run:
+                self.decay_exploration()
+
+        actor_loss /= steps
+        critic_loss /= steps
+
+        # loss = self.replay(mem)
+
+        return actor_loss, critic_loss
+
+    def save_model(self):
+        torch.save(self.model.state_dict(), self.model_path)
+        print("model saved")
+    def load_model(self):
+        self.device = "cpu"
+        if torch.cuda.is_available():
+            self.device = "cuda:0"
+
+        self.criterion = nn.MSELoss()
+
+        # self.model = self.get_model()
+
+        self.model = Models.ActorCriticModelLSTM(self.downscale[0], self.downscale[1], len(self.actions),
+                                             stack_size=self.frame_stack_size)
+
+        if exists(self.model_path):
+            self.model.load_state_dict(torch.load(self.model_path), strict=False)
+
+        self.model.set_device(self.device)
+        self.model.to(self.device)
+
+        self.criterion.to(self.device)
+
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
+
+        self.memory = {
+            'states': torch.zeros((self.N, self.frame_stack_size, 30, 45), dtype=torch.float32, device=self.device),
+            'actions': torch.zeros((self.N,), dtype=torch.int, device=self.device),
+            'rewards': torch.zeros((self.N,), dtype=torch.float32, device=self.device),
+            'next_states': torch.zeros((self.N, self.frame_stack_size, 30, 45), dtype=torch.float32, device=self.device),
+            'dones': torch.zeros((self.N,), dtype=torch.int, device=self.device),
+            'old_probs': torch.zeros((self.N,), dtype=torch.float32, device=self.device),
+        }
+        #self.memory = torch.zeros((self.N, 30*45*4*2 + 2 + 2), dtype=torch.float32, device=self.device)
+        self.memory_idx = 0
+        print("model loaded")
+
+    def remember(self, state, action, reward, next_state, done):
+        action = self.actions.index(action)
+
+        with torch.no_grad():
+            s = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
+            old_pd, _ = self.model.forward(s)
+            old_pd = old_pd.squeeze()[action]
+
+        #state = torch.from_numpy(state).to(self.device)
+        #next_state = torch.from_numpy(next_state).to(self.device)
+
+        state = torch.from_numpy(state).to(self.device)
+        action = torch.tensor(action, dtype=torch.int).to(self.device)
+        reward = torch.tensor(reward, dtype=torch.float).to(self.device)
+        next_state = torch.from_numpy(next_state).to(self.device)
+        done = torch.tensor(done, dtype=torch.bool).to(self.device)
+        old_pd = old_pd.clone().detach()
+
+        self.memory['states'][self.memory_idx] = state
+        self.memory['actions'][self.memory_idx] = action
+        self.memory['rewards'][self.memory_idx] = reward
+        self.memory['next_states'][self.memory_idx] = next_state
+        self.memory['dones'][self.memory_idx] = done
+        self.memory['old_probs'][self.memory_idx] = old_pd
+
+
+
+
+
+        self.max_sample += 1
+        self.memory_idx = (self.memory_idx + 1) % self.N
+        if self.max_sample >= self.memory_size:
+            self.max_sample = self.memory_size
+
+
+    def get_action(self, state, explore=True):
+        if random.random() < self.exploration and explore:
+            action_index = random.randint(0, len(self.actions) - 1)
+            action = self.actions[action_index]
+        else:
+            state = np.expand_dims(state, axis=0)
+            with torch.no_grad():
+                state = torch.from_numpy(state).float().to(self.device)
+                action_index = int(self.model.predict(state))
+            action = self.actions[action_index]
+
+        return action
+
+    def replay(self):
+
+        randomSampler = RandomSampler(range(0, self.max_sample), replacement=False, num_samples=self.batch_size)
+
+        sampled_indices = torch.tensor(list(randomSampler)).to(self.device)
+
+        states = self.memory['states'][sampled_indices]
+        actions = self.memory['actions'][sampled_indices]
+        rewards = self.memory['rewards'][sampled_indices]
+        next_states = self.memory['next_states'][sampled_indices]
+        dones = self.memory['dones'][sampled_indices]
+        old_prob_dists = self.memory['old_probs'][sampled_indices]
+
+        not_dones = (~dones).int()
+
+        prob_dists, state_values = self.model(states)
+        _, next_state_values = self.model(next_states)
+
+        state_values = state_values.squeeze()
+        next_state_values = next_state_values.squeeze()
+
+        q_values = rewards + self.dr * next_state_values * not_dones
+        advantages = q_values - state_values
+
+        prob_dists = prob_dists[torch.arange(self.batch_size), actions.long()]
+
+        with torch.no_grad():
+            prob_dists += 1e-5
+
+        prob_dists_logs = torch.log(prob_dists)
+
+
+        with torch.no_grad():
+            old_prob_dist_logs = torch.log(old_prob_dists)
+
+        eps = 0.2
+        ratios = torch.exp(prob_dists_logs - old_prob_dist_logs)
+        clipped_ratios = ratios.clamp(1 - eps, 1 + eps)
+        actor_loss = -(torch.min(ratios, clipped_ratios) * advantages)
+        mse_loss = nn.MSELoss()
+        critic_loss = mse_loss(state_values, q_values)
+
+        loss = actor_loss.mean() + critic_loss.mean()
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        for idx, prob_dist in zip(sampled_indices, prob_dists):
+            self.memory['old_probs'][idx] = prob_dist
+
+        return actor_loss.mean().item(), critic_loss.mean().item()
+
+
+    def start_training(self, config, epoch_count=10, episodes_per_epoch=100, episodes_per_test=100, tics_per_action=12,
+                       hardcoded_path=False,
+                       fast_train=True, tune_config=None, use_ppo=False, render=False):
+
+        # Set up game environment and action
+        self.set_up_game_environment(config, hardcoded_path)
+        game = self.game
+        if tune_config == None:
+            self.load_model()
+        else:
+            self.load_model_config(tune_config)
+
+        if render is False:
+            game.set_render_enabled(False)
+
+        # Set up ray and training details
+        writer = SummaryWriter(comment=('_' + self.model_name))
+        writer.filename_suffix = self.model_name
+        first_run = True
+
+        # Epoch runs a certain amount of episodes, followed a test run to show performance.
+        # At the end the model is saved on disk
+        for epoch in range(epoch_count):
+            print("epoch: ", epoch + 1)
+
+            for e in trange(episodes_per_epoch):
+                actor_loss, critic_loss = self.train_run(tics_per_action, first_run)
+
+                writer.add_scalar('Actor_Loss_epoch_size_' + str(episodes_per_epoch), actor_loss,
+                                  e + epoch * episodes_per_epoch)
+                writer.add_scalar('Critic_Loss_epoch_size_' + str(episodes_per_epoch), critic_loss,
+                                  e + epoch * episodes_per_epoch)
+                writer.add_scalar('Loss_epoch_size_' + str(episodes_per_epoch), actor_loss + critic_loss,
+                                  e + epoch * episodes_per_epoch)
+                writer.add_scalar('Reward_epoch_size_' + str(episodes_per_epoch), game.get_total_reward(),
+                                  e + epoch * episodes_per_epoch)
+                writer.add_scalar('Exploration_epoch_size_' + str(episodes_per_epoch), self.exploration,
+                                  e + epoch * episodes_per_epoch)
+
+            self.save_model()
+            avg_score = 0.0
+            for e in trange(episodes_per_test):
+                #avg_score += self.test_run_fast(tics_per_action)
+                avg_score += self.test_run(tics_per_action)
+
+            avg_score /= episodes_per_test
+            writer.add_scalar('Score_epoch_size_' + str(episodes_per_test), avg_score, epoch)
+
+            first_run = False
+
