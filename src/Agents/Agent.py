@@ -55,7 +55,7 @@ class AgentBase:
 
         if not render:
             self.game.set_window_visible(False)
-        
+
         self.game.init()
 
         # Set up model and possible actions

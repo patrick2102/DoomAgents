@@ -767,9 +767,6 @@ class A2CPPOLSTM(A2C):
         else:
             self.load_model_config(tune_config)
 
-        if render is False:
-            game.set_render_enabled(False)
-
         # Set up ray and training details
         writer = SummaryWriter(comment=('_' + self.model_name))
         writer.filename_suffix = self.model_name
